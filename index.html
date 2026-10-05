@@ -112,6 +112,21 @@
     margin-bottom: 14px;
   }
   .btn.secondary { background: var(--accent-soft); color: var(--text); }
+  .btn.ghost { background: transparent; color: var(--accent); border: 1.5px solid var(--border); }
+
+  /* Aviso (janela de confirmação) */
+  .modal-backdrop {
+    position: fixed; inset: 0; z-index: 50; display: flex; align-items: flex-end; justify-content: center;
+    background: rgba(27, 17, 23, .55); padding: 16px 16px calc(16px + env(safe-area-inset-bottom));
+  }
+  .modal {
+    width: 100%; max-width: calc(var(--max-width) - 32px); background: var(--card); color: var(--text);
+    border-radius: 20px; padding: 22px 20px 8px; box-shadow: 0 12px 40px rgba(0, 0, 0, .25);
+  }
+  .modal .h-card { margin-bottom: 10px; }
+  .modal ul { margin: 0 0 12px; padding-left: 20px; }
+  .modal .btn { margin-bottom: 10px; }
+  @media (min-width: 560px) { .modal-backdrop { align-items: center; } }
   .card.dark .btn { margin: 14px 0 0; }
   .btn-back {
     display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 4px;
@@ -293,6 +308,7 @@
 <body>
 <main id="app" class="app"></main>
 <nav id="nav" class="nav" aria-label="Menu principal" hidden></nav>
+<div id="modal-root"></div>
 
 <script>
 /* =====================================================================
@@ -321,7 +337,9 @@ const CONFIG = {
   consentText: 'Autorizo o envio do meu nome, WhatsApp, peso, medidas e comentários para a equipe da Profe Laura acompanhar a minha jornada. As fotos não são enviadas.',
   // Link da aula "Como tirar suas fotos e medidas" (vazio mostra "EM BREVE").
   measureLessonUrl: '',
-  resetMessage: 'Reiniciar a jornada e apagar o seu progresso?',
+  // Avisos dos botões no fim da Jornada.
+  editDataMessage: 'Você volta ao cadastro para corrigir nome, WhatsApp, medidas e fotos. Seus dias concluídos e comentários continuam salvos, e você segue de onde parou.',
+  resetMessage: 'Tudo o que você fez neste celular será apagado e você recomeça do Dia 1:',
   footer: 'Conteúdo educativo. Não substitui avaliação, diagnóstico ou acompanhamento médico ou nutricional.',
   // Conteúdo dos 7 dias (primeira versão, revisar com a Laura).
   // Para liberar a vídeo aula, preencha "videoUrl" com o link.
@@ -450,6 +468,7 @@ function loadState() {
       if (typeof saved.phone === 'string') base.phone = saved.phone;
       if (typeof saved.device === 'string') base.device = saved.device;
       base.consent = saved.consent === true;
+      base.noPhotos = saved.noPhotos === true;
       if (Array.isArray(saved.done)) base.done = base.done.map((_, i) => !!saved.done[i]);
       if (Array.isArray(saved.recovered)) base.recovered = base.recovered.map((_, i) => !!saved.recovered[i]);
       ['notes', 'reasons'].forEach(k => {
@@ -475,6 +494,8 @@ let view = { screen: onboarded() ? 'journey' : 'welcome', day: null };
 let draft = { name: state.name || '', phone: '', consent: false, noPhotos: false, weight: '', measures: {} };
 // Rascunho das medidas finais (tela de resultado).
 let finalDraft = { weight: '', measures: {}, editing: false };
+// true enquanto ela corrige os dados pelo botão "Corrigir meus dados".
+let editingProfile = false;
 
 const doneCount = () => state.done.filter(Boolean).length;
 const allDone = () => doneCount() === TOTAL;
@@ -659,7 +680,11 @@ function numberField(id, label, unit, value) {
 
 function renderWelcome() {
   const measures = CONFIG.measures.map(m => numberField('m-' + m.id, m.label, 'cm', draft.measures[m.id])).join('');
-  return `
+  const intro = editingProfile ? `
+    <button class="btn-back" type="button" id="cancel-edit">${ICON.back} Jornada</button>
+    <div><span class="tag">SEUS DADOS</span></div>
+    <h1 class="h-screen">Corrigir meus dados</h1>
+    <p class="muted stack-top">Ajuste o que precisar e salve. Seus dias concluídos e comentários continuam como estão.</p>` : `
     ${brand()}
     <span class="tag">DESAFIO VOLTA AO EIXO 7D</span>
     <h1 class="h-big">Bem-vinda. Vamos voltar ao eixo, um dia de cada vez.</h1>
@@ -668,7 +693,9 @@ function renderWelcome() {
       <h2 class="h-card">Antes do Dia 1: suas fotos e medidas</h2>
       <p>O seu primeiro passo é registrar como você está hoje. Não é para se julgar: é para ter um ponto de partida e enxergar o caminho que você vai fazer, além da balança.</p>
       <button class="btn secondary link-card" type="button" data-go="guide">Ver como tirar fotos e medidas ${ICON.chev}</button>
-    </section>
+    </section>`;
+  return `
+    ${intro}
     <form id="welcome-form" novalidate>
       <label class="field-label" for="name">Como você quer ser chamada?</label>
       <input class="input" id="name" name="name" type="text" placeholder="Seu nome" autocomplete="given-name" maxlength="40" value="${esc(draft.name)}">
@@ -693,7 +720,7 @@ function renderWelcome() {
         <span>${esc(CONFIG.consentText)}</span>
       </label>
       <p class="form-error" id="form-error" role="alert" hidden></p>
-      <button class="btn" type="submit" id="start-btn">Começar o Dia 1</button>
+      <button class="btn" type="submit" id="start-btn">${editingProfile ? 'Salvar e voltar para a Jornada' : 'Começar o Dia 1'}</button>
     </form>
     ${footer()}`;
 }
@@ -783,7 +810,10 @@ function renderJourney() {
       : `<button class="btn" type="button" data-day="${next}">Continuar: Dia ${next}</button>`}
     <h2 class="h-card section-title">Os 7 dias</h2>
     ${rows}
-    <button class="btn secondary" type="button" id="reset" style="margin-top:12px">Reiniciar jornada</button>
+    <div style="margin-top:12px">
+      <button class="btn secondary" type="button" id="edit-data">Corrigir meus dados</button>
+      <button class="btn ghost" type="button" id="reset">Reiniciar jornada do zero</button>
+    </div>
     ${footer()}`;
 }
 
@@ -1043,6 +1073,7 @@ const NAV = [
 ];
 
 function go(screen, day = null) {
+  if (screen !== 'welcome' && screen !== 'guide') editingProfile = false;
   view = { screen, day };
   render();
   window.scrollTo(0, 0);
@@ -1066,6 +1097,75 @@ function render() {
   }
   if (view.screen === 'bonus') updateTimerUI();
   if (view.screen === 'welcome') updateStartButton();
+}
+
+/* =====================================================================
+   AVISOS E BOTÕES DO FIM DA JORNADA
+   ===================================================================== */
+let modalAction = null, modalReturnFocus = null;
+
+function openModal({ title, body, confirm, onConfirm }) {
+  modalAction = onConfirm;
+  modalReturnFocus = document.activeElement;
+  document.getElementById('modal-root').innerHTML = `
+    <div class="modal-backdrop" id="modal-backdrop">
+      <div class="modal" role="alertdialog" aria-modal="true" aria-labelledby="modal-title" aria-describedby="modal-body">
+        <h2 class="h-card" id="modal-title">${esc(title)}</h2>
+        <div id="modal-body">${body}</div>
+        <div style="margin-top:16px">
+          <button class="btn" type="button" id="modal-confirm">${esc(confirm)}</button>
+          <button class="btn secondary" type="button" id="modal-cancel">Cancelar</button>
+        </div>
+      </div>
+    </div>`;
+  document.getElementById('modal-cancel').focus();
+}
+
+function closeModal() {
+  document.getElementById('modal-root').innerHTML = '';
+  modalAction = null;
+  if (modalReturnFocus && document.contains(modalReturnFocus)) modalReturnFocus.focus();
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && document.getElementById('modal-backdrop')) closeModal();
+});
+document.addEventListener('click', e => {
+  if (e.target.id === 'modal-backdrop') closeModal();
+});
+
+const toInput = v => v == null ? '' : String(v).replace('.', ',');
+function formatPhone(p) {
+  const d = String(p || '').replace(/^55/, '');
+  return d.length < 10 ? d : `(${d.slice(0, 2)}) ${d.slice(2, -4)}-${d.slice(-4)}`;
+}
+
+// Volta ao cadastro com tudo preenchido; os dias continuam salvos.
+function startEditProfile() {
+  draft = {
+    name: state.name || '',
+    phone: formatPhone(state.phone),
+    consent: state.consent,
+    noPhotos: state.noPhotos === true,
+    weight: toInput(state.start && state.start.weight),
+    measures: Object.fromEntries(CONFIG.measures.map(m => [m.id, toInput(state.start && state.start.measures[m.id])]))
+  };
+  editingProfile = true;
+  go('welcome');
+}
+
+// Apaga tudo deste aparelho e volta para o cadastro vazio.
+async function resetEverything() {
+  // A planilha registra que ela recomeçou e zera os dias dela (o histórico fica lá).
+  track('reinicio', { progresso: { concluidos: 0, recuperados: 0, ultimoDia: '' } });
+  await photoTx('readwrite', s => s.clear());
+  Object.keys(photoUrls).forEach(k => { URL.revokeObjectURL(photoUrls[k]); delete photoUrls[k]; });
+  Object.assign(state, { name: null, phone: null, consent: false, noPhotos: false, start: null, final: null }, emptyProgress());
+  saveState();
+  draft = { name: '', phone: '', consent: false, noPhotos: false, weight: '', measures: {} };
+  finalDraft = { weight: '', measures: {}, editing: false };
+  editingProfile = false;
+  go('welcome');
 }
 
 /* =====================================================================
@@ -1199,13 +1299,20 @@ document.addEventListener('submit', e => {
   if (e.target.id !== 'welcome-form') return;
   e.preventDefault();
   const { errors, name, phone, weight, measures } = readForm();
-  if (errors.length) return showErrors(errors, 'form-error', 'Para começar, falta: ');
+  if (errors.length) return showErrors(errors, 'form-error', editingProfile ? 'Para salvar, falta: ' : 'Para começar, falta: ');
+  const previousPhone = state.phone;
   state.name = name;
   state.phone = phone;
   state.consent = true;
-  state.start = { weight, measures, date: new Date().toISOString().slice(0, 10) };
+  state.noPhotos = draft.noPhotos;
+  // Na correção, a data de início continua a original.
+  state.start = { weight, measures, date: (editingProfile && state.start && state.start.date) || new Date().toISOString().slice(0, 10) };
   saveState();
-  track('cadastro', { inicio: toSheetMeasures(state.start) });
+  track('cadastro', {
+    inicio: toSheetMeasures(state.start),
+    correcao: editingProfile,
+    whatsappAnterior: editingProfile && previousPhone !== phone ? previousPhone : undefined
+  });
   go('journey');
 });
 
@@ -1255,12 +1362,35 @@ document.addEventListener('click', e => {
       go(view.day < TOTAL ? 'journey' : 'result');
       break;
     }
+    case 'edit-data':
+      openModal({
+        title: 'Corrigir meus dados',
+        body: `<p>${esc(CONFIG.editDataMessage)}</p>`,
+        confirm: 'Corrigir meus dados',
+        onConfirm: startEditProfile
+      });
+      break;
+    case 'cancel-edit':
+      go('journey');
+      break;
     case 'reset':
-      if (confirm(CONFIG.resetMessage)) {
-        Object.assign(state, emptyProgress(), { final: null });
-        saveState();
-        render();
-      }
+      openModal({
+        title: 'Reiniciar a jornada do zero?',
+        body: `<p>${esc(CONFIG.resetMessage)}</p>
+          <ul class="small"><li>nome, WhatsApp, peso e medidas</li><li>fotos</li><li>dias concluídos e passos marcados</li><li>comentários e resultado final</li></ul>
+          <p class="small muted">Não dá para desfazer. Se você só quer ajustar o nome, o WhatsApp ou as medidas, use "Corrigir meus dados".</p>`,
+        confirm: 'Apagar tudo e recomeçar',
+        onConfirm: resetEverything
+      });
+      break;
+    case 'modal-confirm': {
+      const fn = modalAction;
+      closeModal();
+      if (fn) fn();
+      break;
+    }
+    case 'modal-cancel':
+      closeModal();
       break;
     case 'photos-toggle': {
       draft.noPhotos = !draft.noPhotos;

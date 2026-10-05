@@ -46,6 +46,8 @@ const TIPOS = {
   dia_recuperacao: 'Dia concluído com recuperação',
   dia_desmarcado: 'Dia desmarcado',
   cadastro: 'Cadastro',
+  correcao: 'Cadastro corrigido',
+  reinicio: 'Jornada reiniciada do zero',
   resultado: 'Resultado final'
 };
 
@@ -114,7 +116,11 @@ function doPost(e) {
 
     switch (dados.tipo) {
       case 'cadastro':
-        registrar(tel, dados.nome, compra, quando, '', TIPOS.cadastro, resumoMedidas(dados.inicio));
+        registrar(tel, dados.nome, compra, quando, '', dados.correcao ? TIPOS.correcao : TIPOS.cadastro,
+          resumoMedidas(dados.inicio) + (dados.whatsappAnterior ? ' · WhatsApp anterior: ' + formatarTelefone(dados.whatsappAnterior) : ''));
+        break;
+      case 'reinicio':
+        registrar(tel, dados.nome, compra, quando, '', TIPOS.reinicio, 'Ela apagou o progresso no aparelho e recomeçou do Dia 1.');
         break;
       case 'comentario':
       case 'nao_consegui':
@@ -145,7 +151,8 @@ function atualizarCliente(tel, dados, quando, compra) {
   const sh = aba(ABA_CLIENTES);
   const cab = cabecalhoClientes();
   const col = nome => cab.indexOf(nome);
-  let linha = acharLinha(sh, 1, tel);
+  // Se ela corrigiu o WhatsApp, a linha antiga (pelo número anterior) é atualizada.
+  let linha = acharLinha(sh, 1, tel) || (dados.whatsappAnterior ? acharLinha(sh, 1, dados.whatsappAnterior) : 0);
   const valores = linha
     ? sh.getRange(linha, 1, 1, cab.length).getValues()[0]
     : cab.map(() => '');
@@ -166,6 +173,9 @@ function atualizarCliente(tel, dados, quando, compra) {
     valores[col('Dias com recuperação')] = dados.progresso.recuperados;
     valores[col('Último dia concluído')] = dados.progresso.ultimoDia || '';
     valores[col('Concluiu os 7 dias')] = dados.progresso.concluidos >= 7 ? 'Sim' : 'Não';
+  }
+  if (dados.tipo === 'reinicio') {
+    ['Peso final (kg)', 'Data do resultado'].concat(MEDIDAS.map(m => m[1] + ' final (cm)')).forEach(c => { valores[col(c)] = ''; });
   }
   if (dados.final) {
     valores[col('Peso final (kg)')] = dados.final.peso;
