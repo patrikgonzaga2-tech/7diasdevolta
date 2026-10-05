@@ -472,7 +472,7 @@ let state = loadState();
 const onboarded = () => !!(state.name && state.phone && state.consent && state.start);
 let view = { screen: onboarded() ? 'journey' : 'welcome', day: null };
 // Rascunho do cadastro: mantém o que foi digitado ao abrir a tela de fotos e medidas.
-let draft = { name: state.name || '', phone: '', consent: false, weight: '', measures: {} };
+let draft = { name: state.name || '', phone: '', consent: false, noPhotos: false, weight: '', measures: {} };
 // Rascunho das medidas finais (tela de resultado).
 let finalDraft = { weight: '', measures: {}, editing: false };
 
@@ -681,9 +681,13 @@ function renderWelcome() {
         ${numberField('weight', 'Peso', 'kg', draft.weight)}
         ${measures}
       </div>
-      <h2 class="h-card form-section">Suas fotos de início <span class="muted small" style="font-family:var(--font-body);font-weight:500">(opcional)</span></h2>
-      <p class="muted small">Ficam só no seu celular, para comparar lado a lado no final. Não são enviadas para ninguém.</p>
+      <h2 class="h-card form-section" id="photos-title">Suas fotos de início</h2>
+      ${draft.noPhotos ? `
+      <p class="muted small">Tudo bem. Você segue sem fotos e, no final, compara só as medidas.</p>
+      <button class="btn secondary" type="button" id="photos-toggle" style="margin-top:12px">Quero adicionar as fotos</button>` : `
+      <p class="muted small">De frente, de lado e de costas. Ficam só no seu celular, para comparar lado a lado no final. Não são enviadas para ninguém.</p>
       ${photoGrid('antes')}
+      <button class="btn secondary" type="button" id="photos-toggle" style="margin-top:14px">Prefiro não adicionar as fotos</button>`}
       <label class="step consent">
         <input type="checkbox" id="consent" ${draft.consent ? 'checked' : ''}>
         <span>${esc(CONFIG.consentText)}</span>
@@ -1082,6 +1086,13 @@ function readForm() {
   const phone = normalizePhone(draft.phone);
   if (!phone) errors.push({ id: 'phone', msg: 'o seu WhatsApp com DDD' });
   const { weight, measures } = readMeasures(draft, errors);
+  // Fotos: as 3 são pedidas, a não ser que ela escolha seguir sem fotos.
+  const missingPhotos = CONFIG.poses.filter(p => !photoUrls['antes-' + p.id]);
+  if (!draft.noPhotos && missingPhotos.length) {
+    errors.push({ id: missingPhotos.length === CONFIG.poses.length ? 'photos-toggle' : 'ph-antes-' + missingPhotos[0].id,
+      msg: (missingPhotos.length === CONFIG.poses.length ? 'as suas fotos'
+        : (missingPhotos.length > 1 ? 'as fotos ' : 'a foto ') + missingPhotos.map(p => p.label.toLowerCase()).join(' e ')) + ' (ou toque em "Prefiro não adicionar as fotos")' });
+  }
   if (!draft.consent) errors.push({ id: 'consent', msg: 'a autorização de envio dos dados' });
   return { errors, name, phone, weight, measures };
 }
@@ -1188,7 +1199,7 @@ document.addEventListener('submit', e => {
   if (e.target.id !== 'welcome-form') return;
   e.preventDefault();
   const { errors, name, phone, weight, measures } = readForm();
-  if (errors.length) return showErrors(errors, 'form-error', 'Para começar, preencha ');
+  if (errors.length) return showErrors(errors, 'form-error', 'Para começar, falta: ');
   state.name = name;
   state.phone = phone;
   state.consent = true;
@@ -1251,6 +1262,13 @@ document.addEventListener('click', e => {
         render();
       }
       break;
+    case 'photos-toggle': {
+      draft.noPhotos = !draft.noPhotos;
+      render();
+      const t = document.getElementById('photos-title');
+      if (t) t.scrollIntoView({ block: 'start' });
+      break;
+    }
     case 'edit-final':
       finalDraft = {
         weight: String(state.final.weight).replace('.', ','),
