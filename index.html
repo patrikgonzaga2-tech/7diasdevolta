@@ -1,0 +1,655 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#FFF7F3" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#1B1117" media="(prefers-color-scheme: dark)">
+<title>Desafio Volta ao Eixo 7D</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23F5C518' d='M12 21s-7.5-4.6-9.6-9.2C.9 8.4 3 4.5 6.7 4.5c2.1 0 3.5 1.1 4.3 2.4h2c.8-1.3 2.2-2.4 4.3-2.4 3.7 0 5.8 3.9 4.3 7.3C19.5 16.4 12 21 12 21z'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Figtree:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #FFF7F3;
+    --card: #FFFFFF;
+    --text: #2A1620;
+    --text-2: #5B4651;
+    --accent: #B8325A;
+    --on-accent: #FFFFFF;
+    --accent-soft: #F9DDE4;
+    --teal: #1F5F5B;
+    --teal-soft: #DCEBE8;
+    --border: #EBD3CE;
+    --max-width: 520px;
+    --font-title: "Bricolage Grotesque", Georgia, serif;
+    --font-body: "Figtree", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1B1117;
+      --card: #2A1B23;
+      --text: #FBEFF2;
+      --text-2: #CDB4BC;
+      --accent: #E0607F;
+      --on-accent: #2A1620;
+      --accent-soft: #4A2230;
+      --teal: #6FC2B8;
+      --teal-soft: #1F3A38;
+      --border: #473440;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-body);
+    font-size: 16px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  button, input { font: inherit; color: inherit; }
+  button { cursor: pointer; }
+  a { color: var(--accent); }
+  :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+  .app {
+    max-width: var(--max-width);
+    margin: 0 auto;
+    padding: calc(20px + env(safe-area-inset-top)) 16px 24px;
+  }
+  .app.has-nav { padding-bottom: calc(96px + env(safe-area-inset-bottom)); }
+
+  /* Tipografia */
+  .h-big, .h-screen, .h-card { font-family: var(--font-title); margin: 0; letter-spacing: -0.01em; }
+  .h-big { font-size: 32px; font-weight: 800; line-height: 1.15; }
+  .h-screen { font-size: 26px; font-weight: 800; line-height: 1.2; }
+  .h-card { font-size: 19px; font-weight: 600; line-height: 1.3; }
+  .muted { color: var(--text-2); }
+  .small { font-size: 14px; }
+  .caption { font-size: 12px; }
+  p { margin: 0 0 12px; }
+  p:last-child { margin-bottom: 0; }
+
+  /* Marca */
+  .brand { display: flex; align-items: center; gap: 10px; margin-bottom: 22px; }
+  .brand-icon {
+    width: 36px; height: 36px; border-radius: 50%;
+    background: var(--accent); color: var(--on-accent);
+    display: grid; place-items: center; flex: none;
+  }
+  .brand-name { font-family: var(--font-title); font-weight: 800; font-size: 14px; letter-spacing: 0.14em; }
+
+  /* Etiqueta */
+  .tag {
+    display: inline-block; padding: 5px 12px; border-radius: 999px;
+    background: var(--accent-soft); color: var(--text);
+    font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+
+  /* Cartões */
+  .card {
+    background: var(--card); border-radius: 18px; padding: 18px; margin-bottom: 14px;
+    border: 1px solid var(--border);
+  }
+  .card .h-card { margin-bottom: 8px; }
+  .card.soft { background: var(--teal-soft); border-color: transparent; }
+  .card.dark { background: var(--text); color: var(--bg); border-color: transparent; }
+  .card.dark .muted { color: var(--bg); opacity: .85; }
+
+  /* Botões */
+  .btn {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    width: 100%; min-height: 54px; padding: 12px 18px; border-radius: 14px; border: 0;
+    font-size: 16px; font-weight: 600; text-decoration: none; text-align: center;
+    background: var(--accent); color: var(--on-accent);
+    margin-bottom: 14px;
+  }
+  .btn.secondary { background: var(--accent-soft); color: var(--text); }
+  .card.dark .btn { margin: 14px 0 0; }
+  .btn-back {
+    display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 4px;
+    background: none; border: 0; color: var(--accent); font-weight: 600; margin: -8px 0 10px -4px;
+  }
+  .row-btns { display: flex; gap: 10px; }
+  .row-btns .btn { margin-bottom: 0; }
+
+  /* Formulário */
+  label.field-label { display: block; font-weight: 600; margin: 24px 0 8px; }
+  .input {
+    width: 100%; min-height: 54px; padding: 12px 16px; border-radius: 14px;
+    border: 1.5px solid var(--border); background: var(--card); font-size: 16px; margin-bottom: 14px;
+  }
+  .input::placeholder { color: var(--text-2); opacity: .8; }
+  .input:focus { outline: none; border-color: var(--accent); }
+
+  /* Progresso */
+  .progress { display: flex; align-items: center; gap: 18px; }
+  .ring { position: relative; width: 112px; height: 112px; flex: none; }
+  .ring svg { display: block; transform: rotate(-90deg); }
+  .ring-label {
+    position: absolute; inset: 0; display: grid; place-items: center;
+    font-family: var(--font-title); font-weight: 800; font-size: 24px;
+  }
+  .ring circle { transition: stroke-dashoffset .5s ease; }
+
+  /* Lista de dias */
+  .section-title { margin: 26px 0 12px; }
+  .day-row {
+    display: flex; align-items: center; gap: 14px; width: 100%; min-height: 64px;
+    padding: 12px 14px; margin-bottom: 10px; border-radius: 16px;
+    background: var(--card); border: 1px solid var(--border); text-align: left;
+  }
+  .day-dot {
+    width: 30px; height: 30px; border-radius: 50%; flex: none;
+    display: grid; place-items: center; font-weight: 600; font-size: 14px;
+    border: 1.5px solid var(--border); color: var(--text-2);
+  }
+  .day-dot.done { background: var(--teal); border-color: var(--teal); color: var(--card); }
+  .day-text { flex: 1; min-width: 0; }
+  .day-title { display: block; font-weight: 600; }
+  .day-sub { display: block; font-size: 14px; color: var(--text-2); }
+  .chev { color: var(--text-2); flex: none; }
+
+  /* Áudio */
+  .audio {
+    display: flex; align-items: center; gap: 14px; padding: 14px 16px;
+    background: var(--teal-soft); border-radius: 18px; margin: 18px 0 14px;
+  }
+  .audio-play {
+    width: 48px; height: 48px; border-radius: 50%; border: 0; flex: none;
+    background: var(--teal); color: var(--card); display: grid; place-items: center; opacity: .55; cursor: not-allowed;
+  }
+  .placeholder { font-size: 12px; font-weight: 600; letter-spacing: 0.06em; color: var(--text-2); }
+
+  /* Vídeo */
+  .video {
+    aspect-ratio: 16 / 9; border-radius: 14px; background: var(--teal-soft); color: var(--teal);
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; margin-top: 12px;
+  }
+  .video .placeholder { color: var(--teal); }
+  .card .btn { margin: 12px 0 0; }
+
+  /* Passos */
+  .step {
+    display: flex; align-items: flex-start; gap: 12px; min-height: 44px; padding: 10px 0; cursor: pointer;
+  }
+  .step + .step { border-top: 1px solid var(--border); }
+  .step input {
+    appearance: none; -webkit-appearance: none; margin: 0; flex: none;
+    width: 26px; height: 26px; border-radius: 8px; border: 2px solid var(--teal); background: var(--card);
+    display: grid; place-items: center; cursor: pointer;
+  }
+  .step input:checked { background: var(--teal); }
+  .step input:checked::after {
+    content: ""; width: 7px; height: 13px; border: solid var(--card); border-width: 0 3px 3px 0;
+    transform: translateY(-2px) rotate(45deg);
+  }
+  .step span { padding-top: 1px; }
+  .step input:checked + span { color: var(--text-2); }
+
+  /* Prato */
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 18px 0 14px; }
+  .grid2 .card { margin: 0; }
+  .dot { width: 14px; height: 14px; border-radius: 50%; margin-bottom: 10px; }
+  .grid2 .h-card { font-size: 17px; }
+
+  /* Cronômetro */
+  .timer {
+    font-family: var(--font-title); font-weight: 800; font-size: 64px; line-height: 1;
+    text-align: center; margin: 18px 0 20px; font-variant-numeric: tabular-nums;
+  }
+
+  /* Rodapé */
+  .footer { margin-top: 28px; font-size: 12px; color: var(--text-2); text-align: center; }
+
+  /* Menu inferior */
+  .nav {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 10;
+    background: var(--card); border-top: 1px solid var(--border);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .nav-inner { max-width: var(--max-width); margin: 0 auto; display: grid; grid-template-columns: repeat(4, 1fr); }
+  .nav button {
+    min-height: 60px; border: 0; background: none; color: var(--text-2);
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+    font-size: 12px; font-weight: 600;
+  }
+  .nav button[aria-current="page"] { color: var(--accent); }
+
+  .stack-top { margin-top: 6px; }
+  .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); border: 0; }
+</style>
+</head>
+<body>
+<main id="app" class="app"></main>
+<nav id="nav" class="nav" aria-label="Menu principal" hidden></nav>
+
+<script>
+/* =====================================================================
+   CONFIGURAÇÃO — tudo o que é ajustável (seção 7 da especificação)
+   ===================================================================== */
+const CONFIG = {
+  storageKey: 've7d',
+  communityUrl: 'https://wa.link/efeitolipo21d',
+  timerSeconds: 600,
+  defaultName: 'Querida',
+  resetMessage: 'Reiniciar a jornada e apagar o seu progresso?',
+  footer: 'Conteúdo educativo. Não substitui avaliação, diagnóstico ou acompanhamento médico ou nutricional.',
+  // Conteúdo dos 7 dias (primeira versão, revisar com a Laura).
+  // Para liberar a vídeo aula, preencha "videoUrl" com o link.
+  days: [
+    {
+      theme: 'Sem compensar',
+      subtitle: 'O primeiro prato do retorno',
+      videoTitle: 'Como voltar na próxima refeição',
+      videoUrl: '',
+      message: 'Escorregou? Tudo bem. Hoje o objetivo é um só: voltar na próxima refeição, sem pular nada para compensar.',
+      steps: ['Ouvir o áudio do Dia 1', 'Montar a próxima refeição sem pular nenhuma para compensar', 'Escolher um horário possível para amanhã']
+    },
+    {
+      theme: 'Prato Possível na correria',
+      subtitle: 'Um prato simples em poucos minutos',
+      videoTitle: 'Montando o Prato Possível',
+      videoUrl: '',
+      message: 'Hoje você aprende a montar um prato simples, sem demonizar nenhum alimento e sem restrição extrema.',
+      steps: ['Ouvir o áudio do Dia 2', 'Abrir o Guia do Prato Possível', 'Montar uma refeição seguindo o guia']
+    },
+    {
+      theme: 'Kit Dia Imperfeito',
+      subtitle: 'Dia corrido pede um plano B',
+      videoTitle: 'Seu plano B para dias imperfeitos',
+      videoUrl: '',
+      message: 'Um dia fora do roteiro não cancela o plano. Ele só pede um plano B.',
+      steps: ['Ouvir o áudio do Dia 3', 'Ler o Kit Dia Imperfeito', 'Escolher o seu plano B para a semana']
+    },
+    {
+      theme: 'Ativação de 10 minutos',
+      subtitle: 'Movimento pequeno, no seu nível',
+      videoTitle: 'Ativação de 10 minutos',
+      videoUrl: '',
+      message: 'Hoje é só retomar o movimento. Dez minutos, em casa, no seu ritmo.',
+      steps: ['Ouvir o áudio do Dia 4', 'Fazer uma Ativação de 10 minutos', 'Perceber como você se sente depois']
+    },
+    {
+      theme: 'Fim de semana protegido',
+      subtitle: 'O fim de semana não desmonta a semana',
+      videoTitle: 'Protegendo o fim de semana',
+      videoUrl: '',
+      message: 'O fim de semana pode ser leve e gostoso. O que protege você é saber como voltar.',
+      steps: ['Ouvir o áudio do Dia 5', 'Escolher a sua refeição âncora do fim de semana', 'Reler o Kit Dia Imperfeito']
+    },
+    {
+      theme: 'Planejando a semana que vem',
+      subtitle: 'Poucos passos, bem escolhidos',
+      videoTitle: 'Planejando a sua semana',
+      videoUrl: '',
+      message: 'Hoje você deixa a próxima semana mais fácil, com pouco planejamento e nenhuma perfeição.',
+      steps: ['Ouvir o áudio do Dia 6', 'Escolher 3 horários possíveis para a ativação', 'Pensar em uma refeição simples para cada dia']
+    },
+    {
+      theme: 'Você voltou. E agora?',
+      subtitle: 'O próximo passo',
+      videoTitle: 'Você voltou: e agora?',
+      videoUrl: '',
+      message: 'Você provou que consegue voltar. O próximo passo é não precisar recomeçar do zero.',
+      steps: ['Ouvir o áudio do Dia 7', 'Revisar a sua semana na Jornada', 'Conhecer a Comunidade Corpo Feliz']
+    }
+  ]
+};
+
+/* =====================================================================
+   ÍCONES (SVG simples)
+   ===================================================================== */
+const svg = (d, size = 22, extra = '') =>
+  `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ${extra}>${d}</svg>`;
+const ICON = {
+  heart: svg('<path d="M12 20s-7-4.4-9-8.7C1.6 8 3.6 4.5 7 4.5c2 0 3.3 1.1 5 3 1.7-1.9 3-3 5-3 3.4 0 5.4 3.5 4 6.8-2 4.3-9 8.7-9 8.7z" fill="currentColor" stroke="none"/>', 18),
+  journey: svg('<circle cx="6" cy="18" r="2.5"/><circle cx="18" cy="6" r="2.5"/><path d="M8.5 18H15a3 3 0 0 0 0-6H9a3 3 0 0 1 0-6h6.5"/>'),
+  plate: svg('<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/>'),
+  kit: svg('<rect x="3.5" y="7" width="17" height="13" rx="2.5"/><path d="M9 7V5.5A1.5 1.5 0 0 1 10.5 4h3A1.5 1.5 0 0 1 15 5.5V7M12 11v5M9.5 13.5h5"/>'),
+  gift: svg('<rect x="3.5" y="8" width="17" height="4" rx="1"/><path d="M5 12v8h14v-8M12 8v12M12 8S10.5 3.5 8 4.5 9 8 12 8zM12 8s1.5-4.5 4-3.5S15 8 12 8z"/>'),
+  play: svg('<path d="M8 5.5v13l11-6.5z" fill="currentColor"/>', 22),
+  check: svg('<path d="M5 12.5l4.5 4.5L19 7.5"/>', 16, 'stroke-width="3"'),
+  chev: svg('<path d="M9 6l6 6-6 6"/>', 20),
+  back: svg('<path d="M15 6l-6 6 6 6"/>', 20),
+  external: svg('<path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/>', 18)
+};
+
+/* =====================================================================
+   ESTADO (salvo no aparelho, chave "ve7d")
+   ===================================================================== */
+const TOTAL = CONFIG.days.length;
+
+function emptyProgress() {
+  return { done: Array(TOTAL).fill(false), steps: CONFIG.days.map(d => d.steps.map(() => false)) };
+}
+function loadState() {
+  const base = { name: null, ...emptyProgress() };
+  try {
+    const saved = JSON.parse(localStorage.getItem(CONFIG.storageKey) || 'null');
+    if (saved && typeof saved === 'object') {
+      if (typeof saved.name === 'string') base.name = saved.name;
+      if (Array.isArray(saved.done)) base.done = base.done.map((_, i) => !!saved.done[i]);
+      if (Array.isArray(saved.steps)) {
+        base.steps = base.steps.map((row, i) => row.map((_, j) => !!(saved.steps[i] && saved.steps[i][j])));
+      }
+    }
+  } catch (e) { /* armazenamento indisponível: segue sem salvar */ }
+  return base;
+}
+function saveState() {
+  try { localStorage.setItem(CONFIG.storageKey, JSON.stringify(state)); } catch (e) { /* ignora */ }
+}
+
+let state = loadState();
+// A tela atual não é salva: ao recarregar, volta para a Jornada (ou Boas-vindas).
+let view = { screen: state.name ? 'journey' : 'welcome', day: null };
+
+const doneCount = () => state.done.filter(Boolean).length;
+const allDone = () => doneCount() === TOTAL;
+const suggestedDay = () => { const i = state.done.indexOf(false); return i === -1 ? TOTAL : i + 1; };
+
+/* =====================================================================
+   UTILIDADES
+   ===================================================================== */
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const brand = () => `<div class="brand"><span class="brand-icon">${ICON.heart}</span><span class="brand-name">CORPO FELIZ</span></div>`;
+const footer = () => `<p class="footer">${esc(CONFIG.footer)}</p>`;
+const communityCard = () => `
+  <section class="card dark" aria-labelledby="community-title">
+    <h2 class="h-card" id="community-title">Você voltou. E agora?</h2>
+    <p class="muted">Imagine ter acompanhamento todos os dias, por 12 meses, para nunca mais precisar recomeçar do zero.</p>
+    <a class="btn" href="${esc(CONFIG.communityUrl)}" target="_blank" rel="noopener">Conhecer a Comunidade Corpo Feliz</a>
+  </section>`;
+
+/* =====================================================================
+   TELAS
+   ===================================================================== */
+function renderWelcome() {
+  return `
+    ${brand()}
+    <span class="tag">DESAFIO VOLTA AO EIXO 7D</span>
+    <h1 class="h-big">Bem-vinda. Vamos voltar ao eixo, um dia de cada vez.</h1>
+    <p class="muted stack-top">Sete dias, um passo por dia, com a Profe Laura Rosa. Sem compensar e sem castigo.</p>
+    <form id="welcome-form" novalidate>
+      <label class="field-label" for="name">Como você quer ser chamada?</label>
+      <input class="input" id="name" name="name" type="text" placeholder="Seu nome" autocomplete="given-name" maxlength="40">
+      <button class="btn" type="submit">Começar o Dia 1</button>
+    </form>
+    ${footer()}`;
+}
+
+function ring(n) {
+  const size = 112, stroke = 10, r = (size - stroke) / 2, c = 2 * Math.PI * r;
+  const offset = c * (1 - n / TOTAL);
+  return `
+    <div class="ring" role="img" aria-label="${n} de ${TOTAL} dias concluídos">
+      <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" aria-hidden="true">
+        <circle cx="${size / 2}" cy="${size / 2}" r="${r}" fill="none" stroke="var(--border)" stroke-width="${stroke}"/>
+        <circle cx="${size / 2}" cy="${size / 2}" r="${r}" fill="none" stroke="var(--teal)" stroke-width="${stroke}"
+          stroke-linecap="round" stroke-dasharray="${c}" stroke-dashoffset="${offset}" ${n === 0 ? 'opacity="0"' : ''}/>
+      </svg>
+      <span class="ring-label" aria-hidden="true">${n}/${TOTAL}</span>
+    </div>`;
+}
+
+function renderJourney() {
+  const n = doneCount(), next = suggestedDay(), complete = allDone();
+  const rows = CONFIG.days.map((d, i) => {
+    const done = state.done[i];
+    return `
+      <button class="day-row" type="button" data-day="${i + 1}">
+        <span class="day-dot ${done ? 'done' : ''}">${done ? ICON.check + '<span class="sr-only">Concluído</span>' : i + 1}</span>
+        <span class="day-text">
+          <span class="day-title">Dia ${i + 1} · ${esc(d.theme)}</span>
+          <span class="day-sub">${esc(d.subtitle)}</span>
+        </span>
+        <span class="chev">${ICON.chev}</span>
+      </button>`;
+  }).join('');
+
+  return `
+    ${brand()}
+    <h1 class="h-screen">Oi, ${esc(state.name)}.</h1>
+    <p class="muted stack-top">${complete ? 'Você completou os 7 dias.' : `Hoje é o Dia ${next}: ${esc(CONFIG.days[next - 1].theme)}`}</p>
+    <section class="card progress">
+      ${ring(n)}
+      <div>
+        <h2 class="h-card" style="margin-bottom:4px">${complete ? 'Você voltou ao eixo' : 'Sua jornada'}</h2>
+        <p class="muted small">${n} de ${TOTAL} dias concluídos</p>
+      </div>
+    </section>
+    ${complete ? communityCard() : `<button class="btn" type="button" data-day="${next}">Continuar: Dia ${next}</button>`}
+    <h2 class="h-card section-title">Os 7 dias</h2>
+    ${rows}
+    <button class="btn secondary" type="button" id="reset" style="margin-top:12px">Reiniciar jornada</button>
+    ${footer()}`;
+}
+
+function renderDay(num) {
+  const d = CONFIG.days[num - 1], i = num - 1, done = state.done[i];
+  const video = d.videoUrl
+    ? `<a class="btn" href="${esc(d.videoUrl)}" target="_blank" rel="noopener">${ICON.play} Assistir à vídeo aula</a>`
+    : `<div class="video">${svg('<circle cx="12" cy="12" r="10"/><path d="M10 8.5v7l6-3.5z" fill="currentColor"/>', 40)}<span class="placeholder">[VÍDEO AULA · EM BREVE]</span></div>`;
+  const steps = d.steps.map((s, j) => `
+    <label class="step">
+      <input type="checkbox" data-step="${j}" ${state.steps[i][j] ? 'checked' : ''}>
+      <span>${esc(s)}</span>
+    </label>`).join('');
+
+  return `
+    <button class="btn-back" type="button" data-go="journey">${ICON.back} Jornada</button>
+    <div><span class="tag">DIA ${num} DE ${TOTAL}</span></div>
+    <h1 class="h-screen">${esc(d.theme)}</h1>
+    <p class="muted stack-top">${esc(d.subtitle)}</p>
+    <div class="audio">
+      <button class="audio-play" type="button" disabled aria-label="Áudio da Profe Laura (em breve)">${ICON.play}</button>
+      <span class="placeholder">[ÁUDIO DA PROFE LAURA · 3 a 5 min]</span>
+    </div>
+    <section class="card"><p>${esc(d.message)}</p></section>
+    <section class="card">
+      <h2 class="h-card">Vídeo aula do Dia ${num}</h2>
+      <p class="muted small">${esc(d.videoTitle)}</p>
+      ${video}
+    </section>
+    <section class="card">
+      <h2 class="h-card">Seus passos de hoje</h2>
+      ${steps}
+    </section>
+    <button class="btn ${done ? 'secondary' : ''}" type="button" id="toggle-day">
+      ${done ? 'Dia concluído (toque para desmarcar)' : `Concluir o Dia ${num}`}
+    </button>
+    ${num === TOTAL ? communityCard() : ''}
+    ${footer()}`;
+}
+
+function renderPlate() {
+  const items = [
+    ['Proteína', 'var(--accent)'],
+    ['Legumes e folhas', 'var(--teal)'],
+    ['Carboidrato', 'var(--text)'],
+    ['Gordura boa', 'var(--text-2)']
+  ].map(([name, color]) => `
+    <div class="card">
+      <div class="dot" style="background:${color}"></div>
+      <h2 class="h-card">${name}</h2>
+      <p class="muted caption">[exemplos e proporções: validar com o responsável técnico]</p>
+    </div>`).join('');
+  return `
+    <h1 class="h-screen">Guia do Prato Possível</h1>
+    <p class="muted stack-top">Um jeito simples de montar refeições na correria, sem demonizar nenhum alimento.</p>
+    <div class="grid2">${items}</div>
+    <section class="card"><h2 class="h-card">Trocas simples</h2><p class="muted small">[conteúdo a definir com a Laura e o responsável técnico]</p></section>
+    <section class="card"><h2 class="h-card">Lista de compras base</h2><p class="muted small">[conteúdo a definir com a Laura e o responsável técnico]</p></section>
+    <p class="muted small">Material educativo. Não é cardápio individualizado.</p>
+    ${footer()}`;
+}
+
+function renderKit() {
+  const tips = [['Festa', 'festas'], ['Viagem', 'viagens'], ['Semana caótica', 'semanas corridas']]
+    .map(([t, p]) => `<section class="card"><h2 class="h-card">${t}</h2><p class="muted small">[dica da Laura para ${p}]</p></section>`).join('');
+  return `
+    <h1 class="h-screen">Kit Dia Imperfeito</h1>
+    <p class="muted stack-top" style="margin-bottom:18px">Escorregou? A regra é uma só: volte na refeição seguinte, sem compensar.</p>
+    ${tips}
+    <section class="card soft"><p style="font-weight:600">Voltou na refeição seguinte? Então você está no eixo.</p></section>
+    ${footer()}`;
+}
+
+function renderBonus() {
+  const activations = [1, 2, 3].map(n => `
+    <section class="card"><h2 class="h-card">Ativação ${n}</h2>
+      <div class="video">${svg('<circle cx="12" cy="12" r="10"/><path d="M10 8.5v7l6-3.5z" fill="currentColor"/>', 32)}<span class="placeholder">[VÍDEO EM BREVE]</span></div>
+    </section>`).join('');
+  return `
+    <h1 class="h-screen" style="margin-bottom:18px">Bônus</h1>
+    <section class="card">
+      <h2 class="h-card">Cronômetro de 10 minutos</h2>
+      <div class="timer" id="timer" role="timer" aria-live="off" aria-label="Tempo restante">${formatTime(timer.remaining)}</div>
+      <div class="row-btns">
+        <button class="btn" type="button" id="timer-toggle">${timer.running ? 'Pausar' : 'Iniciar'}</button>
+        <button class="btn secondary" type="button" id="timer-reset">Zerar</button>
+      </div>
+    </section>
+    <h2 class="h-card section-title">3 Ativações de 10 Minutos</h2>
+    ${activations}
+    <section class="card">
+      <h2 class="h-card">Aula: Por que a segunda-feira nunca funciona</h2>
+      <p class="placeholder">[AULA EM BREVE]</p>
+    </section>
+    ${footer()}`;
+}
+
+/* =====================================================================
+   CRONÔMETRO (não é salvo; continua rodando ao trocar de tela)
+   ===================================================================== */
+const timer = { remaining: CONFIG.timerSeconds, running: false, id: null };
+
+function formatTime(s) {
+  return String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0');
+}
+function updateTimerUI() {
+  const el = document.getElementById('timer');
+  const btn = document.getElementById('timer-toggle');
+  if (el) {
+    el.textContent = formatTime(timer.remaining);
+    const m = Math.floor(timer.remaining / 60), s = timer.remaining % 60;
+    el.setAttribute('aria-label', `Tempo restante: ${m} minutos e ${s} segundos`);
+  }
+  if (btn) btn.textContent = timer.running ? 'Pausar' : 'Iniciar';
+}
+function timerStop() {
+  clearInterval(timer.id);
+  timer.id = null;
+  timer.running = false;
+}
+function timerStart() {
+  if (timer.remaining <= 0) timer.remaining = CONFIG.timerSeconds;
+  timer.running = true;
+  timer.id = setInterval(() => {
+    timer.remaining = Math.max(0, timer.remaining - 1);
+    if (timer.remaining === 0) timerStop();
+    updateTimerUI();
+  }, 1000);
+}
+
+/* =====================================================================
+   NAVEGAÇÃO E RENDERIZAÇÃO
+   ===================================================================== */
+const NAV = [
+  { id: 'journey', label: 'Jornada', icon: ICON.journey },
+  { id: 'plate', label: 'Prato', icon: ICON.plate },
+  { id: 'kit', label: 'Kit', icon: ICON.kit },
+  { id: 'bonus', label: 'Bônus', icon: ICON.gift }
+];
+
+function go(screen, day = null) {
+  view = { screen, day };
+  render();
+  window.scrollTo(0, 0);
+}
+
+function render() {
+  const app = document.getElementById('app');
+  const nav = document.getElementById('nav');
+  const screens = { welcome: renderWelcome, journey: renderJourney, day: () => renderDay(view.day), plate: renderPlate, kit: renderKit, bonus: renderBonus };
+  app.innerHTML = screens[view.screen]();
+
+  const showNav = view.screen !== 'welcome';
+  app.classList.toggle('has-nav', showNav);
+  nav.hidden = !showNav;
+  if (showNav) {
+    const active = view.screen === 'day' ? 'journey' : view.screen;
+    nav.innerHTML = `<div class="nav-inner">${NAV.map(item => `
+      <button type="button" data-go="${item.id}" ${item.id === active ? 'aria-current="page"' : ''}>
+        ${item.icon}<span>${item.label}</span>
+      </button>`).join('')}</div>`;
+  }
+  if (view.screen === 'bonus') updateTimerUI();
+}
+
+/* =====================================================================
+   EVENTOS
+   ===================================================================== */
+document.addEventListener('submit', e => {
+  if (e.target.id !== 'welcome-form') return;
+  e.preventDefault();
+  const name = document.getElementById('name').value.trim();
+  state.name = name || CONFIG.defaultName;
+  saveState();
+  go('journey');
+});
+
+document.addEventListener('click', e => {
+  const el = e.target.closest('button');
+  if (!el) return;
+
+  if (el.dataset.go) return go(el.dataset.go);
+  if (el.dataset.day) return go('day', Number(el.dataset.day));
+
+  switch (el.id) {
+    case 'toggle-day': {
+      const i = view.day - 1;
+      state.done[i] = !state.done[i];
+      saveState();
+      if (state.done[i] && view.day < TOTAL) go('journey');
+      else render();
+      break;
+    }
+    case 'reset':
+      if (confirm(CONFIG.resetMessage)) {
+        Object.assign(state, emptyProgress());
+        saveState();
+        render();
+      }
+      break;
+    case 'timer-toggle':
+      timer.running ? timerStop() : timerStart();
+      updateTimerUI();
+      break;
+    case 'timer-reset':
+      timerStop();
+      timer.remaining = CONFIG.timerSeconds;
+      updateTimerUI();
+      break;
+  }
+});
+
+document.addEventListener('change', e => {
+  const box = e.target;
+  if (!box.matches('input[data-step]') || view.screen !== 'day') return;
+  state.steps[view.day - 1][Number(box.dataset.step)] = box.checked;
+  saveState();
+});
+
+render();
+</script>
+</body>
+</html>
