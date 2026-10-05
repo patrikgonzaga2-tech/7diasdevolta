@@ -58,8 +58,12 @@ function onOpen() {
     .createMenu('Volta ao Eixo')
     .addItem('Preparar planilha', 'prepararPlanilha')
     .addItem('Atualizar datas de compra', 'atualizarDatasDeCompra')
+    .addItem('Corrigir WhatsApp com #ERROR!', 'corrigirTelefones')
     .addToUi();
 }
+
+// Coluna do WhatsApp em cada aba (1 = A, 2 = B).
+const COLUNA_WHATSAPP = { Clientes: 1, Registros: 2, Compras: 1 };
 
 function prepararPlanilha() {
   prepararAba(ABA_CLIENTES, cabecalhoClientes());
@@ -76,7 +80,8 @@ function prepararAba(nome, cabecalho) {
   const aba = ss.getSheetByName(nome) || ss.insertSheet(nome);
   aba.getRange(1, 1, 1, cabecalho.length).setValues([cabecalho]).setFontWeight('bold').setBackground('#F9DDE4');
   aba.setFrozenRows(1);
-  aba.getRange('A:A').setNumberFormat('@'); // WhatsApp como texto
+  // WhatsApp como texto, para o Planilhas não tratar o número como conta.
+  aba.getRange(1, COLUNA_WHATSAPP[nome], aba.getMaxRows(), 1).setNumberFormat('@');
   return aba;
 }
 
@@ -185,7 +190,7 @@ function registrar(tel, nome, compra, quando, dia, tipo, texto, substituir) {
   if (substituir) {
     const dados = sh.getDataRange().getValues();
     for (let i = 1; i < dados.length; i++) {
-      if (dados[i][1] === tel && String(dados[i][4]) === String(dia) && dados[i][5] === tipo) {
+      if (chaveTelefone(dados[i][1]) === chaveTelefone(tel) && String(dados[i][4]) === String(dia) && dados[i][5] === tipo) {
         sh.getRange(i + 1, 1, 1, valores.length).setValues([valores]);
         return;
       }
@@ -211,12 +216,35 @@ function chaveTelefone(v) {
   return d.slice(0, 2) + d.slice(-8);
 }
 
+// Formato (37) 99946-7853. Sem o "+" no começo, que o Planilhas leria como conta.
 function formatarTelefone(v) {
   let d = String(v || '').replace(/\D/g, '');
   if (d.length >= 12 && d.indexOf('55') === 0) d = d.slice(2);
   if (d.length < 10) return '';
   const ddd = d.slice(0, 2), num = d.slice(2);
-  return '+55 (' + ddd + ') ' + num.slice(0, num.length - 4) + '-' + num.slice(-4);
+  return '(' + ddd + ') ' + num.slice(0, num.length - 4) + '-' + num.slice(-4);
+}
+
+// Conserta as células de WhatsApp que viraram #ERROR! (gravadas como "+55 ...").
+function corrigirTelefones() {
+  Object.keys(COLUNA_WHATSAPP).forEach(nome => {
+    const sh = aba(nome);
+    if (!sh) return;
+    const col = COLUNA_WHATSAPP[nome];
+    sh.getRange(1, col, sh.getMaxRows(), 1).setNumberFormat('@');
+    const n = sh.getLastRow() - 1;
+    if (n < 1) return;
+    const faixa = sh.getRange(2, col, n, 1);
+    const formulas = faixa.getFormulas();
+    const valores = faixa.getValues();
+    const novos = valores.map((v, i) => {
+      const bruto = formulas[i][0] || v[0];
+      const tel = formatarTelefone(bruto);
+      return [tel || v[0]];
+    });
+    faixa.setValues(novos);
+  });
+  atualizarDatasDeCompra();
 }
 
 function dataDeCompra(tel) {
@@ -260,7 +288,8 @@ function onEdit(e) {
 function acharLinha(sh, coluna, valor) {
   const n = sh.getLastRow() - 1;
   if (n < 1) return 0;
+  const chave = chaveTelefone(valor);
   const vals = sh.getRange(2, coluna, n, 1).getValues();
-  for (let i = 0; i < vals.length; i++) if (vals[i][0] === valor) return i + 2;
+  for (let i = 0; i < vals.length; i++) if (chaveTelefone(vals[i][0]) === chave) return i + 2;
   return 0;
 }

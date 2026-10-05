@@ -59,6 +59,8 @@ Dica: em **Registros**, use **Dados → Criar um filtro** para ver só um tipo (
 
 Assim que você cola, o script preenche a "Data da compra" nas abas Clientes e Registros, comparando pelo WhatsApp. O número pode estar em qualquer formato (`+55 11 98888-7777`, `11988887777`, com ou sem o 9). Se precisar forçar, use o menu **Volta ao Eixo → Atualizar datas de compra**, que aparece no topo da planilha.
 
+O WhatsApp aparece no formato `(37) 99946-7853`, sem o `+55`. Se você colar números com `+` na aba Compras e eles virarem `#ERROR!`, use o menu **Volta ao Eixo → Corrigir WhatsApp com #ERROR!**.
+
 ## Sobre as fotos
 
 As fotos **não vão para a planilha**. Elas ficam guardadas só no celular da cliente e aparecem lado a lado na tela de resultado. Isso protege as clientes, já que são fotos do corpo, e evita guardar imagens sensíveis numa planilha que várias pessoas da equipe abrem.
