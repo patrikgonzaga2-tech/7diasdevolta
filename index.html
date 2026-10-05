@@ -128,6 +128,19 @@
   }
   .input::placeholder { color: var(--text-2); opacity: .8; }
   .input:focus { outline: none; border-color: var(--accent); }
+  .input[aria-invalid="true"] { border-color: var(--accent); }
+  .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; }
+  .field-row > div { min-width: 0; }
+  .field-row label.field-label { margin-top: 4px; }
+  .unit-wrap { position: relative; }
+  .unit-wrap .input { padding-right: 46px; }
+  .unit { position: absolute; right: 16px; top: 16px; color: var(--text-2); font-size: 14px; pointer-events: none; }
+  .form-section { margin: 26px 0 4px; }
+  .form-error { color: var(--accent); font-weight: 600; font-size: 14px; margin: 0 0 14px; }
+  .btn[aria-disabled="true"] { opacity: .5; }
+  .btn.link-card { justify-content: space-between; text-align: left; }
+  .tip-list { margin: 0; padding-left: 20px; }
+  .tip-list li + li { margin-top: 6px; }
 
   /* Progresso */
   .progress { display: flex; align-items: center; gap: 18px; }
@@ -239,7 +252,14 @@ const CONFIG = {
   storageKey: 've7d',
   communityUrl: 'https://wa.link/efeitolipo21d',
   timerSeconds: 600,
-  defaultName: 'Querida',
+  // Medidas pedidas no cadastro (todas obrigatórias, em cm). O peso é sempre pedido, em kg.
+  measures: [
+    { id: 'cintura', label: 'Cintura' },
+    { id: 'abdomen', label: 'Abdômen' },
+    { id: 'quadril', label: 'Quadril' }
+  ],
+  // Link da aula "Como tirar suas fotos e medidas" (vazio mostra "EM BREVE").
+  measureLessonUrl: '',
   resetMessage: 'Reiniciar a jornada e apagar o seu progresso?',
   footer: 'Conteúdo educativo. Não substitui avaliação, diagnóstico ou acompanhamento médico ou nutricional.',
   // Conteúdo dos 7 dias (primeira versão, revisar com a Laura).
@@ -307,6 +327,11 @@ const CONFIG = {
 /* =====================================================================
    ÍCONES (SVG simples)
    ===================================================================== */
+const MEASURE_TIPS = {
+  cintura: 'na parte mais fina da barriga, acima do umbigo.',
+  abdomen: 'na linha do umbigo.',
+  quadril: 'na parte mais larga do bumbum.'
+};
 const svg = (d, size = 22, extra = '') =>
   `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ${extra}>${d}</svg>`;
 const ICON = {
@@ -331,11 +356,12 @@ function emptyProgress() {
   return { done: Array(TOTAL).fill(false), steps: CONFIG.days.map(d => d.steps.map(() => false)) };
 }
 function loadState() {
-  const base = { name: null, ...emptyProgress() };
+  const base = { name: null, start: null, ...emptyProgress() };
   try {
     const saved = JSON.parse(localStorage.getItem(CONFIG.storageKey) || 'null');
     if (saved && typeof saved === 'object') {
       if (typeof saved.name === 'string') base.name = saved.name;
+      if (saved.start && typeof saved.start === 'object' && saved.start.measures) base.start = saved.start;
       if (Array.isArray(saved.done)) base.done = base.done.map((_, i) => !!saved.done[i]);
       if (Array.isArray(saved.steps)) {
         base.steps = base.steps.map((row, i) => row.map((_, j) => !!(saved.steps[i] && saved.steps[i][j])));
@@ -350,7 +376,10 @@ function saveState() {
 
 let state = loadState();
 // A tela atual não é salva: ao recarregar, volta para a Jornada (ou Boas-vindas).
-let view = { screen: state.name ? 'journey' : 'welcome', day: null };
+const onboarded = () => !!(state.name && state.start);
+let view = { screen: onboarded() ? 'journey' : 'welcome', day: null };
+// Rascunho do cadastro: mantém o que foi digitado ao abrir a tela de fotos e medidas.
+let draft = { name: state.name || '', weight: '', measures: {} };
 
 const doneCount = () => state.done.filter(Boolean).length;
 const allDone = () => doneCount() === TOTAL;
@@ -372,17 +401,79 @@ const communityCard = () => `
 /* =====================================================================
    TELAS
    ===================================================================== */
+function numberField(id, label, unit, value) {
+  return `
+    <div>
+      <label class="field-label" for="${id}">${label}</label>
+      <div class="unit-wrap">
+        <input class="input" id="${id}" name="${id}" type="text" inputmode="decimal" value="${esc(value || '')}" autocomplete="off">
+        <span class="unit" aria-hidden="true">${unit}</span>
+      </div>
+    </div>`;
+}
+
 function renderWelcome() {
+  const measures = CONFIG.measures.map(m => numberField('m-' + m.id, m.label, 'cm', draft.measures[m.id])).join('');
   return `
     ${brand()}
     <span class="tag">DESAFIO VOLTA AO EIXO 7D</span>
     <h1 class="h-big">Bem-vinda. Vamos voltar ao eixo, um dia de cada vez.</h1>
     <p class="muted stack-top">Sete dias, um passo por dia, com a Profe Laura Rosa. Sem compensar e sem castigo.</p>
+    <section class="card soft" style="margin-top:22px">
+      <h2 class="h-card">Antes do Dia 1: suas fotos e medidas</h2>
+      <p>O seu primeiro passo é registrar como você está hoje. Não é para se julgar: é para ter um ponto de partida e enxergar o caminho que você vai fazer, além da balança.</p>
+      <button class="btn secondary link-card" type="button" data-go="guide">Ver como tirar fotos e medidas ${ICON.chev}</button>
+    </section>
     <form id="welcome-form" novalidate>
       <label class="field-label" for="name">Como você quer ser chamada?</label>
-      <input class="input" id="name" name="name" type="text" placeholder="Seu nome" autocomplete="given-name" maxlength="40">
-      <button class="btn" type="submit">Começar o Dia 1</button>
+      <input class="input" id="name" name="name" type="text" placeholder="Seu nome" autocomplete="given-name" maxlength="40" value="${esc(draft.name)}">
+      <h2 class="h-card form-section">Seu ponto de partida</h2>
+      <p class="muted small">Esses números ficam salvos só no seu celular.</p>
+      <div class="field-row">
+        ${numberField('weight', 'Peso', 'kg', draft.weight)}
+        ${measures}
+      </div>
+      <p class="form-error" id="form-error" role="alert" hidden></p>
+      <button class="btn" type="submit" id="start-btn">Começar o Dia 1</button>
     </form>
+    ${footer()}`;
+}
+
+function renderGuide() {
+  const lesson = CONFIG.measureLessonUrl
+    ? `<a class="btn" href="${esc(CONFIG.measureLessonUrl)}" target="_blank" rel="noopener">${ICON.play} Assistir à aula</a>`
+    : `<div class="video">${svg('<circle cx="12" cy="12" r="10"/><path d="M10 8.5v7l6-3.5z" fill="currentColor"/>', 40)}<span class="placeholder">[AULA · EM BREVE]</span></div>`;
+  const measureTips = CONFIG.measures.map(m => `<li><strong>${esc(m.label)}:</strong> ${esc(MEASURE_TIPS[m.id] || 'meça sempre no mesmo ponto.')}</li>`).join('');
+  return `
+    <button class="btn-back" type="button" data-go="welcome">${ICON.back} Voltar</button>
+    <div><span class="tag">PRIMEIRO PASSO</span></div>
+    <h1 class="h-screen">Suas fotos e medidas</h1>
+    <p class="muted stack-top">Leva uns 10 minutos. Faça antes de começar o Dia 1, com calma, e guarde para comparar no final dos 7 dias.</p>
+    <section class="card" style="margin-top:18px">
+      <h2 class="h-card">Aula: como tirar suas fotos e medidas</h2>
+      <p class="muted small">A Profe Laura mostra o passo a passo.</p>
+      ${lesson}
+    </section>
+    <section class="card">
+      <h2 class="h-card">Fotos</h2>
+      <ul class="tip-list">
+        <li>Tire 3 fotos: de frente, de lado e de costas.</li>
+        <li>Use roupa justa ou de ginástica, em um lugar com boa luz.</li>
+        <li>Deixe o celular na altura do umbigo, apoiado ou com ajuda de alguém.</li>
+        <li>As fotos ficam só no seu celular. Você não precisa enviar para ninguém.</li>
+      </ul>
+    </section>
+    <section class="card">
+      <h2 class="h-card">Peso e medidas</h2>
+      <ul class="tip-list">
+        <li>Faça de manhã, antes de comer, depois de ir ao banheiro.</li>
+        <li><strong>Peso:</strong> use sempre a mesma balança.</li>
+        ${measureTips}
+        <li>Encoste a fita métrica na pele, sem apertar.</li>
+      </ul>
+    </section>
+    <section class="card soft"><p style="font-weight:600">Os números mostram um ponto de partida, não o seu valor.</p></section>
+    <button class="btn" type="button" data-go="welcome">Já tenho minhas medidas</button>
     ${footer()}`;
 }
 
@@ -579,10 +670,10 @@ function go(screen, day = null) {
 function render() {
   const app = document.getElementById('app');
   const nav = document.getElementById('nav');
-  const screens = { welcome: renderWelcome, journey: renderJourney, day: () => renderDay(view.day), plate: renderPlate, kit: renderKit, bonus: renderBonus };
+  const screens = { welcome: renderWelcome, guide: renderGuide, journey: renderJourney, day: () => renderDay(view.day), plate: renderPlate, kit: renderKit, bonus: renderBonus };
   app.innerHTML = screens[view.screen]();
 
-  const showNav = view.screen !== 'welcome';
+  const showNav = onboarded();
   app.classList.toggle('has-nav', showNav);
   nav.hidden = !showNav;
   if (showNav) {
@@ -593,16 +684,66 @@ function render() {
       </button>`).join('')}</div>`;
   }
   if (view.screen === 'bonus') updateTimerUI();
+  if (view.screen === 'welcome') updateStartButton();
 }
 
 /* =====================================================================
    EVENTOS
    ===================================================================== */
+// Aceita "68,5" ou "68.5". Devolve número ou null.
+function parseNumber(v) {
+  const n = parseFloat(String(v).trim().replace(',', '.'));
+  return Number.isFinite(n) ? n : null;
+}
+
+const FIELD_LIMITS = { weight: [25, 300], measure: [20, 250] };
+
+function readForm() {
+  const errors = [];
+  const name = draft.name.trim();
+  if (!name) errors.push({ id: 'name', msg: 'o seu nome' });
+  const weight = parseNumber(draft.weight);
+  if (weight === null || weight < FIELD_LIMITS.weight[0] || weight > FIELD_LIMITS.weight[1]) errors.push({ id: 'weight', msg: 'o peso (em kg)' });
+  const measures = {};
+  CONFIG.measures.forEach(m => {
+    const v = parseNumber(draft.measures[m.id]);
+    if (v === null || v < FIELD_LIMITS.measure[0] || v > FIELD_LIMITS.measure[1]) errors.push({ id: 'm-' + m.id, msg: m.label.toLowerCase() + ' (em cm)' });
+    else measures[m.id] = v;
+  });
+  return { errors, name, weight, measures };
+}
+
+function updateStartButton() {
+  const btn = document.getElementById('start-btn');
+  if (btn) btn.setAttribute('aria-disabled', readForm().errors.length ? 'true' : 'false');
+}
+
+document.addEventListener('input', e => {
+  if (view.screen !== 'welcome') return;
+  const id = e.target.id;
+  if (id === 'name') draft.name = e.target.value;
+  else if (id === 'weight') draft.weight = e.target.value;
+  else if (id.startsWith('m-')) draft.measures[id.slice(2)] = e.target.value;
+  else return;
+  e.target.removeAttribute('aria-invalid');
+  updateStartButton();
+});
+
 document.addEventListener('submit', e => {
   if (e.target.id !== 'welcome-form') return;
   e.preventDefault();
-  const name = document.getElementById('name').value.trim();
-  state.name = name || CONFIG.defaultName;
+  const { errors, name, weight, measures } = readForm();
+  const box = document.getElementById('form-error');
+  document.querySelectorAll('#welcome-form [aria-invalid]').forEach(el => el.removeAttribute('aria-invalid'));
+  if (errors.length) {
+    errors.forEach(err => document.getElementById(err.id).setAttribute('aria-invalid', 'true'));
+    box.textContent = 'Para começar, preencha ' + errors.map(err => err.msg).join(', ').replace(/, ([^,]*)$/, ' e $1') + '.';
+    box.hidden = false;
+    document.getElementById(errors[0].id).focus();
+    return;
+  }
+  state.name = name;
+  state.start = { weight, measures, date: new Date().toISOString().slice(0, 10) };
   saveState();
   go('journey');
 });
