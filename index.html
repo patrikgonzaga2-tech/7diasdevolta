@@ -53,7 +53,7 @@
     line-height: 1.5;
     -webkit-font-smoothing: antialiased;
   }
-  button, input { font: inherit; color: inherit; }
+  button, input, textarea { font: inherit; color: inherit; }
   button { cursor: pointer; }
   a { color: var(--accent); }
   :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
@@ -173,7 +173,7 @@
   /* Áudio */
   .audio {
     display: flex; align-items: center; gap: 14px; padding: 14px 16px;
-    background: var(--teal-soft); border-radius: 18px; margin: 18px 0 14px;
+    background: var(--teal-soft); border-radius: 14px; margin-top: 12px;
   }
   .audio-play {
     width: 48px; height: 48px; border-radius: 50%; border: 0; flex: none;
@@ -188,6 +188,28 @@
   }
   .video .placeholder { color: var(--teal); }
   .card .btn { margin: 12px 0 0; }
+
+  /* Conclusão do dia, "Não consegui completar" e comentários */
+  .hint { font-size: 14px; color: var(--text-2); text-align: center; margin: -4px 0 14px; }
+  .textarea {
+    width: 100%; min-height: 104px; padding: 12px 16px; border-radius: 14px; resize: vertical;
+    border: 1.5px solid var(--border); background: var(--card); font-size: 16px; line-height: 1.5; display: block;
+  }
+  .textarea:focus { outline: none; border-color: var(--accent); }
+  .textarea::placeholder { color: var(--text-2); opacity: .8; }
+  .saved-note { font-size: 12px; color: var(--text-2); margin: 6px 0 0; min-height: 18px; }
+  details.fold { padding: 0; }
+  details.fold > summary {
+    list-style: none; cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    min-height: 56px; padding: 14px 18px; font-weight: 600;
+  }
+  details.fold > summary::-webkit-details-marker { display: none; }
+  details.fold > summary svg { transition: transform .2s ease; flex: none; color: var(--text-2); }
+  details.fold[open] > summary svg { transform: rotate(90deg); }
+  details.fold .fold-body { padding: 0 18px 18px; }
+  .recovery { border: 2px solid var(--teal); }
+  .day-row:disabled { cursor: not-allowed; opacity: .6; }
+  @media (prefers-reduced-motion: reduce) { details.fold > summary svg { transition: none; } }
 
   /* Passos */
   .step {
@@ -264,12 +286,16 @@ const CONFIG = {
   footer: 'Conteúdo educativo. Não substitui avaliação, diagnóstico ou acompanhamento médico ou nutricional.',
   // Conteúdo dos 7 dias (primeira versão, revisar com a Laura).
   // Para liberar a vídeo aula, preencha "videoUrl" com o link.
+  // "audioDescription" é a descrição curta do áudio (vazia mostra "EM BREVE").
+  // "recoveryTask" é a tarefa de recuperação do Kit, para quando ela não completa os passos.
   days: [
     {
       theme: 'Sem compensar',
       subtitle: 'O primeiro prato do retorno',
       videoTitle: 'Como voltar na próxima refeição',
       videoUrl: '',
+      audioDescription: '',
+      recoveryTask: 'Faça a próxima refeição completa, sem pular nada para compensar.',
       message: 'Escorregou? Tudo bem. Hoje o objetivo é um só: voltar na próxima refeição, sem pular nada para compensar.',
       steps: ['Ouvir o áudio do Dia 1', 'Montar a próxima refeição sem pular nenhuma para compensar', 'Escolher um horário possível para amanhã']
     },
@@ -278,6 +304,8 @@ const CONFIG = {
       subtitle: 'Um prato simples em poucos minutos',
       videoTitle: 'Montando o Prato Possível',
       videoUrl: '',
+      audioDescription: '',
+      recoveryTask: 'Na próxima refeição, monte um prato simples com uma proteína e um legume.',
       message: 'Hoje você aprende a montar um prato simples, sem demonizar nenhum alimento e sem restrição extrema.',
       steps: ['Ouvir o áudio do Dia 2', 'Abrir o Guia do Prato Possível', 'Montar uma refeição seguindo o guia']
     },
@@ -286,6 +314,8 @@ const CONFIG = {
       subtitle: 'Dia corrido pede um plano B',
       videoTitle: 'Seu plano B para dias imperfeitos',
       videoUrl: '',
+      audioDescription: '',
+      recoveryTask: 'Escreva em uma frase o seu plano B para um dia corrido desta semana.',
       message: 'Um dia fora do roteiro não cancela o plano. Ele só pede um plano B.',
       steps: ['Ouvir o áudio do Dia 3', 'Ler o Kit Dia Imperfeito', 'Escolher o seu plano B para a semana']
     },
@@ -294,6 +324,8 @@ const CONFIG = {
       subtitle: 'Movimento pequeno, no seu nível',
       videoTitle: 'Ativação de 10 minutos',
       videoUrl: '',
+      audioDescription: '',
+      recoveryTask: 'Faça 3 minutos de movimento agora: caminhe pela casa ou alongue o corpo.',
       message: 'Hoje é só retomar o movimento. Dez minutos, em casa, no seu ritmo.',
       steps: ['Ouvir o áudio do Dia 4', 'Fazer uma Ativação de 10 minutos', 'Perceber como você se sente depois']
     },
@@ -302,6 +334,8 @@ const CONFIG = {
       subtitle: 'O fim de semana não desmonta a semana',
       videoTitle: 'Protegendo o fim de semana',
       videoUrl: '',
+      audioDescription: '',
+      recoveryTask: 'Escolha agora a sua refeição âncora de amanhã.',
       message: 'O fim de semana pode ser leve e gostoso. O que protege você é saber como voltar.',
       steps: ['Ouvir o áudio do Dia 5', 'Escolher a sua refeição âncora do fim de semana', 'Reler o Kit Dia Imperfeito']
     },
@@ -310,6 +344,8 @@ const CONFIG = {
       subtitle: 'Poucos passos, bem escolhidos',
       videoTitle: 'Planejando a sua semana',
       videoUrl: '',
+      audioDescription: '',
+      recoveryTask: 'Escolha um único horário possível para a ativação desta semana.',
       message: 'Hoje você deixa a próxima semana mais fácil, com pouco planejamento e nenhuma perfeição.',
       steps: ['Ouvir o áudio do Dia 6', 'Escolher 3 horários possíveis para a ativação', 'Pensar em uma refeição simples para cada dia']
     },
@@ -318,6 +354,8 @@ const CONFIG = {
       subtitle: 'O próximo passo',
       videoTitle: 'Você voltou: e agora?',
       videoUrl: '',
+      audioDescription: '',
+      recoveryTask: 'Releia o que você escreveu nos 7 dias e escolha um passo para manter.',
       message: 'Você provou que consegue voltar. O próximo passo é não precisar recomeçar do zero.',
       steps: ['Ouvir o áudio do Dia 7', 'Revisar a sua semana na Jornada', 'Conhecer a Comunidade Corpo Feliz']
     }
@@ -344,6 +382,7 @@ const ICON = {
   check: svg('<path d="M5 12.5l4.5 4.5L19 7.5"/>', 16, 'stroke-width="3"'),
   chev: svg('<path d="M9 6l6 6-6 6"/>', 20),
   back: svg('<path d="M15 6l-6 6 6 6"/>', 20),
+  lock: svg('<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>', 20),
   external: svg('<path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/>', 18)
 };
 
@@ -353,7 +392,13 @@ const ICON = {
 const TOTAL = CONFIG.days.length;
 
 function emptyProgress() {
-  return { done: Array(TOTAL).fill(false), steps: CONFIG.days.map(d => d.steps.map(() => false)) };
+  return {
+    done: Array(TOTAL).fill(false),
+    recovered: Array(TOTAL).fill(false), // dia concluído pela tarefa de recuperação
+    steps: CONFIG.days.map(d => d.steps.map(() => false)),
+    notes: Array(TOTAL).fill(''),        // comentários do dia
+    reasons: Array(TOTAL).fill('')       // motivo de não ter completado
+  };
 }
 function loadState() {
   const base = { name: null, start: null, ...emptyProgress() };
@@ -363,6 +408,10 @@ function loadState() {
       if (typeof saved.name === 'string') base.name = saved.name;
       if (saved.start && typeof saved.start === 'object' && saved.start.measures) base.start = saved.start;
       if (Array.isArray(saved.done)) base.done = base.done.map((_, i) => !!saved.done[i]);
+      if (Array.isArray(saved.recovered)) base.recovered = base.recovered.map((_, i) => !!saved.recovered[i]);
+      ['notes', 'reasons'].forEach(k => {
+        if (Array.isArray(saved[k])) base[k] = base[k].map((_, i) => typeof saved[k][i] === 'string' ? saved[k][i] : '');
+      });
       if (Array.isArray(saved.steps)) {
         base.steps = base.steps.map((row, i) => row.map((_, j) => !!(saved.steps[i] && saved.steps[i][j])));
       }
@@ -383,6 +432,9 @@ let draft = { name: state.name || '', weight: '', measures: {} };
 
 const doneCount = () => state.done.filter(Boolean).length;
 const allDone = () => doneCount() === TOTAL;
+// Um dia só abre depois que o anterior foi concluído.
+const isUnlocked = num => num === 1 || state.done[num - 2];
+const allStepsDone = i => state.steps[i].every(Boolean);
 const suggestedDay = () => { const i = state.done.indexOf(false); return i === -1 ? TOTAL : i + 1; };
 
 /* =====================================================================
@@ -494,15 +546,15 @@ function ring(n) {
 function renderJourney() {
   const n = doneCount(), next = suggestedDay(), complete = allDone();
   const rows = CONFIG.days.map((d, i) => {
-    const done = state.done[i];
+    const done = state.done[i], open = isUnlocked(i + 1);
     return `
-      <button class="day-row" type="button" data-day="${i + 1}">
+      <button class="day-row" type="button" data-day="${i + 1}" ${open ? '' : 'disabled'}>
         <span class="day-dot ${done ? 'done' : ''}">${done ? ICON.check + '<span class="sr-only">Concluído</span>' : i + 1}</span>
         <span class="day-text">
           <span class="day-title">Dia ${i + 1} · ${esc(d.theme)}</span>
-          <span class="day-sub">${esc(d.subtitle)}</span>
+          <span class="day-sub">${open ? esc(d.subtitle) : `Libera quando você concluir o Dia ${i}`}</span>
         </span>
-        <span class="chev">${ICON.chev}</span>
+        <span class="chev">${open ? ICON.chev : ICON.lock + '<span class="sr-only">Bloqueado</span>'}</span>
       </button>`;
   }).join('');
 
@@ -535,15 +587,35 @@ function renderDay(num) {
       <span>${esc(s)}</span>
     </label>`).join('');
 
+  const complete = allStepsDone(i);
+  let action;
+  if (done) {
+    action = `
+      <button class="btn secondary" type="button" id="toggle-day">Dia concluído (toque para desmarcar)</button>
+      ${state.recovered[i] ? '<p class="hint">Concluído com a tarefa de recuperação.</p>' : ''}`;
+  } else {
+    action = `
+      <button class="btn" type="button" id="toggle-day" aria-disabled="${complete ? 'false' : 'true'}" aria-describedby="day-hint">Concluir o Dia ${num}</button>
+      <p class="hint" id="day-hint">${complete ? (num < TOTAL ? `Ao concluir, o Dia ${num + 1} é liberado.` : 'Último dia da jornada.') : `Marque os ${d.steps.length} passos para concluir o dia.`}</p>
+      ${complete ? '' : `
+      <details class="card fold" id="not-done" ${state.reasons[i] ? 'open' : ''}>
+        <summary>Não consegui completar ${ICON.chev}</summary>
+        <div class="fold-body">
+          <p class="muted small">Tudo bem. Um dia fora do roteiro não cancela o plano. Conte o que aconteceu e faça uma tarefa de recuperação para seguir.</p>
+          <label class="field-label" for="reason" style="margin-top:12px">O que te impediu hoje?</label>
+          <textarea class="textarea" id="reason" data-field="reasons" placeholder="Ex.: o dia foi corrido e não deu tempo de ouvir o áudio">${esc(state.reasons[i])}</textarea>
+          <p class="form-error" id="reason-error" role="alert" hidden style="margin-top:8px">Escreva o motivo para seguir para a tarefa.</p>
+          <button class="btn" type="button" id="go-recovery">Ir para o Kit: 1 tarefa de recuperação</button>
+        </div>
+      </details>`}`;
+  }
+  const audio = d.audioDescription ? esc(d.audioDescription) : '<span class="placeholder">[DESCRIÇÃO DO ÁUDIO · EM BREVE]</span>';
+
   return `
     <button class="btn-back" type="button" data-go="journey">${ICON.back} Jornada</button>
     <div><span class="tag">DIA ${num} DE ${TOTAL}</span></div>
     <h1 class="h-screen">${esc(d.theme)}</h1>
-    <p class="muted stack-top">${esc(d.subtitle)}</p>
-    <div class="audio">
-      <button class="audio-play" type="button" disabled aria-label="Áudio da Profe Laura (em breve)">${ICON.play}</button>
-      <span class="placeholder">[ÁUDIO DA PROFE LAURA · 3 a 5 min]</span>
-    </div>
+    <p class="muted stack-top" style="margin-bottom:18px">${esc(d.subtitle)}</p>
     <section class="card"><p>${esc(d.message)}</p></section>
     <section class="card">
       <h2 class="h-card">Vídeo aula do Dia ${num}</h2>
@@ -551,13 +623,25 @@ function renderDay(num) {
       ${video}
     </section>
     <section class="card">
+      <h2 class="h-card">Áudio da Profe Laura</h2>
+      <p class="muted small">${audio}</p>
+      <div class="audio">
+        <button class="audio-play" type="button" disabled aria-label="Áudio da Profe Laura (em breve)">${ICON.play}</button>
+        <span class="placeholder">[ÁUDIO · EM BREVE · 3 a 5 min]</span>
+      </div>
+    </section>
+    <section class="card">
       <h2 class="h-card">Seus passos de hoje</h2>
       ${steps}
     </section>
-    <button class="btn ${done ? 'secondary' : ''}" type="button" id="toggle-day">
-      ${done ? 'Dia concluído (toque para desmarcar)' : `Concluir o Dia ${num}`}
-    </button>
+    ${action}
     ${num === TOTAL ? communityCard() : ''}
+    <section class="card" style="margin-top:14px">
+      <h2 class="h-card"><label for="note">Comentários do Dia ${num}</label></h2>
+      <p class="muted small">Como foi o seu dia? Escreva o que quiser lembrar. Fica salvo só no seu celular.</p>
+      <textarea class="textarea" id="note" data-field="notes" placeholder="Escreva aqui…" style="margin-top:10px">${esc(state.notes[i])}</textarea>
+      <p class="saved-note" id="note-saved" aria-live="polite"></p>
+    </section>
     ${footer()}`;
 }
 
@@ -584,11 +668,23 @@ function renderPlate() {
 }
 
 function renderKit() {
+  const rd = view.day, task = rd && CONFIG.days[rd - 1].recoveryTask;
+  const recovery = !task ? '' : `
+    <section class="card recovery" aria-labelledby="recovery-title">
+      <span class="tag">TAREFA DE RECUPERAÇÃO · DIA ${rd}</span>
+      <h2 class="h-card" id="recovery-title">${esc(task)}</h2>
+      <p class="muted small">Fez? Então o Dia ${rd} está concluído${rd < TOTAL ? ` e o Dia ${rd + 1} é liberado` : ''}.</p>
+      ${state.done[rd - 1]
+        ? `<button class="btn secondary" type="button" data-day="${rd}">Voltar ao Dia ${rd}</button>`
+        : `<button class="btn" type="button" id="recovery-done">Fiz a tarefa de recuperação</button>`}
+    </section>`;
   const tips = [['Festa', 'festas'], ['Viagem', 'viagens'], ['Semana caótica', 'semanas corridas']]
     .map(([t, p]) => `<section class="card"><h2 class="h-card">${t}</h2><p class="muted small">[dica da Laura para ${p}]</p></section>`).join('');
   return `
+    ${task ? `<button class="btn-back" type="button" data-day="${rd}">${ICON.back} Dia ${rd}</button>` : ''}
     <h1 class="h-screen">Kit Dia Imperfeito</h1>
     <p class="muted stack-top" style="margin-bottom:18px">Escorregou? A regra é uma só: volte na refeição seguinte, sem compensar.</p>
+    ${recovery}
     ${tips}
     <section class="card soft"><p style="font-weight:600">Voltou na refeição seguinte? Então você está no eixo.</p></section>
     ${footer()}`;
@@ -718,6 +814,21 @@ function updateStartButton() {
   if (btn) btn.setAttribute('aria-disabled', readForm().errors.length ? 'true' : 'false');
 }
 
+// Comentários e motivo: salvos enquanto ela digita.
+let savedTimer = null;
+document.addEventListener('input', e => {
+  const field = e.target.dataset && e.target.dataset.field;
+  if (!field || view.screen !== 'day') return;
+  state[field][view.day - 1] = e.target.value;
+  saveState();
+  if (field === 'reasons') { const err = document.getElementById('reason-error'); if (err) err.hidden = true; }
+  if (field === 'notes') {
+    const note = document.getElementById('note-saved');
+    clearTimeout(savedTimer);
+    savedTimer = setTimeout(() => { if (note) note.textContent = 'Salvo no seu celular.'; }, 600);
+  }
+});
+
 document.addEventListener('input', e => {
   if (view.screen !== 'welcome') return;
   const id = e.target.id;
@@ -753,15 +864,43 @@ document.addEventListener('click', e => {
   if (!el) return;
 
   if (el.dataset.go) return go(el.dataset.go);
-  if (el.dataset.day) return go('day', Number(el.dataset.day));
+  if (el.dataset.day) return isUnlocked(Number(el.dataset.day)) && go('day', Number(el.dataset.day));
 
   switch (el.id) {
     case 'toggle-day': {
       const i = view.day - 1;
-      state.done[i] = !state.done[i];
+      if (state.done[i]) {
+        state.done[i] = false;
+        state.recovered[i] = false;
+      } else if (allStepsDone(i)) {
+        state.done[i] = true;
+      } else {
+        // Ainda faltam passos: mostra o caminho "Não consegui completar".
+        const fold = document.getElementById('not-done');
+        if (fold) { fold.open = true; fold.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+        return;
+      }
       saveState();
       if (state.done[i] && view.day < TOTAL) go('journey');
       else render();
+      break;
+    }
+    case 'go-recovery': {
+      const i = view.day - 1;
+      if (!state.reasons[i].trim()) {
+        document.getElementById('reason-error').hidden = false;
+        document.getElementById('reason').focus();
+        return;
+      }
+      go('kit', view.day);
+      break;
+    }
+    case 'recovery-done': {
+      const i = view.day - 1;
+      state.done[i] = true;
+      state.recovered[i] = true;
+      saveState();
+      go(view.day < TOTAL ? 'journey' : 'day', view.day < TOTAL ? null : view.day);
       break;
     }
     case 'reset':
@@ -788,6 +927,12 @@ document.addEventListener('change', e => {
   if (!box.matches('input[data-step]') || view.screen !== 'day') return;
   state.steps[view.day - 1][Number(box.dataset.step)] = box.checked;
   saveState();
+  // Atualiza o botão de concluir e a aba "Não consegui completar" sem perder o que foi digitado.
+  if (!state.done[view.day - 1]) {
+    const y = window.scrollY;
+    render();
+    window.scrollTo(0, y);
+  }
 });
 
 render();
