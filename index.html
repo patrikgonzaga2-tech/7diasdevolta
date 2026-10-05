@@ -316,7 +316,7 @@
    ===================================================================== */
 const CONFIG = {
   storageKey: 've7d',
-  communityUrl: 'https://wa.link/efeitolipo21d',
+  communityUrl: 'https://teamcorpofeliz.com.br/',
   timerSeconds: 600,
   // Medidas pedidas no cadastro (todas obrigatórias, em cm). O peso é sempre pedido, em kg.
   measures: [
@@ -512,9 +512,11 @@ const brand = () => `<div class="brand"><span class="brand-icon">${ICON.heart}</
 const footer = () => `<p class="footer">${esc(CONFIG.footer)}</p>`;
 const communityCard = () => `
   <section class="card dark" aria-labelledby="community-title">
-    <h2 class="h-card" id="community-title">Você voltou. E agora?</h2>
+    <span class="tag">OFERTA EXCLUSIVA DO DESAFIO</span>
+    <h2 class="h-card" id="community-title">Você desbloqueou uma oferta única</h2>
+    <p class="muted">Por ter concluído o Desafio Volta ao Eixo 7D, você ganhou acesso a uma condição especial da Comunidade Corpo Feliz. Ela é só para quem está aqui no desafio.</p>
     <p class="muted">Imagine ter acompanhamento todos os dias, por 12 meses, para nunca mais precisar recomeçar do zero.</p>
-    <a class="btn" href="${esc(CONFIG.communityUrl)}" target="_blank" rel="noopener">Conhecer a Comunidade Corpo Feliz</a>
+    <a class="btn" href="${esc(CONFIG.communityUrl)}" target="_blank" rel="noopener">Ver minha oferta exclusiva</a>
   </section>`;
 
 /* =====================================================================
@@ -837,7 +839,7 @@ function renderDay(num) {
   } else {
     action = `
       <button class="btn" type="button" id="toggle-day" aria-disabled="${complete ? 'false' : 'true'}" aria-describedby="day-hint">Concluir o Dia ${num}</button>
-      <p class="hint" id="day-hint">${complete ? (num < TOTAL ? `Ao concluir, o Dia ${num + 1} é liberado.` : 'Ao concluir, você registra as suas medidas finais e vê a sua evolução.') : `Marque os ${d.steps.length} passos para concluir o dia.`}</p>
+      <p class="hint" id="day-hint">${complete ? (num < TOTAL ? `Ao concluir, o Dia ${num + 1} já abre em seguida.` : 'Ao concluir, você registra as suas medidas finais e vê a sua evolução.') : `Marque os ${d.steps.length} passos para concluir o dia.`}</p>
       ${complete ? '' : `
       <details class="card fold" id="not-done" ${state.reasons[i] ? 'open' : ''}>
         <summary>Não consegui completar ${ICON.chev}</summary>
@@ -854,6 +856,11 @@ function renderDay(num) {
 
   return `
     <button class="btn-back" type="button" data-go="journey">${ICON.back} Jornada</button>
+    ${justFinished === num - 1 ? `
+    <section class="card soft" role="status" style="display:flex;align-items:center;gap:12px">
+      <span class="day-dot done" style="flex:none">${ICON.check}</span>
+      <p style="font-weight:600">Dia ${num - 1} concluído. Agora é o Dia ${num}.</p>
+    </section>` : ''}
     <div><span class="tag">DIA ${num} DE ${TOTAL}</span></div>
     <h1 class="h-screen">${esc(d.theme)}</h1>
     <p class="muted stack-top" style="margin-bottom:18px">${esc(d.subtitle)}</p>
@@ -1072,8 +1079,17 @@ const NAV = [
   { id: 'bonus', label: 'Bônus', icon: ICON.gift }
 ];
 
+// Dia concluído: abre direto o dia seguinte (ou o resultado, depois do Dia 7).
+let justFinished = null;
+function nextAfter(num) {
+  if (num >= TOTAL) return go('result');
+  justFinished = num;
+  go('day', num + 1);
+}
+
 function go(screen, day = null) {
   if (screen !== 'welcome' && screen !== 'guide') editingProfile = false;
+  if (!(screen === 'day' && day === justFinished + 1)) justFinished = null;
   view = { screen, day };
   render();
   window.scrollTo(0, 0);
@@ -1339,7 +1355,7 @@ document.addEventListener('click', e => {
       }
       saveState();
       track('dia', { dia: view.day, concluido: state.done[i], recuperacao: false });
-      if (state.done[i]) go(view.day < TOTAL ? 'journey' : 'result');
+      if (state.done[i]) nextAfter(view.day);
       else render();
       break;
     }
@@ -1359,7 +1375,7 @@ document.addEventListener('click', e => {
       state.recovered[i] = true;
       saveState();
       track('dia', { dia: view.day, concluido: true, recuperacao: true });
-      go(view.day < TOTAL ? 'journey' : 'result');
+      nextAfter(view.day);
       break;
     }
     case 'edit-data':

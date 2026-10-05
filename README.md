@@ -29,7 +29,7 @@ Os itens ajustáveis da especificação ficam no objeto `CONFIG`, no começo do 
 - `sheetKey`: chave que precisa ser igual a `CHAVE` em `planilha/Codigo.gs`
 - `consentText`: texto da autorização de envio dos dados
 - `poses`: as fotos pedidas (frente, lado, costas)
-- `communityUrl`: link do botão "Conhecer a Comunidade Corpo Feliz"
+- `communityUrl`: link do botão "Ver minha oferta exclusiva" (oferta da Comunidade Corpo Feliz)
 - `days[n].videoUrl`: link da vídeo aula de cada dia (vazio mostra "EM BREVE"; preenchido, mostra o botão "Assistir à vídeo aula")
 - `days[n]`: tema, subtítulo, título da vídeo aula, mensagem e os 3 passos de cada dia
 - `days[n].audioDescription`: descrição curta do áudio do dia (vazio mostra "EM BREVE")
