@@ -208,6 +208,34 @@
   details.fold[open] > summary svg { transform: rotate(90deg); }
   details.fold .fold-body { padding: 0 18px 18px; }
   .recovery { border: 2px solid var(--teal); }
+
+  /* Fotos */
+  .photo-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 12px; }
+  .photo-slot { min-width: 0; }
+  .photo-box {
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+    aspect-ratio: 3 / 4; max-width: 100%; border-radius: 14px; border: 1.5px dashed var(--border);
+    background: var(--bg); color: var(--text-2); cursor: pointer; overflow: hidden;
+    font-size: 12px; font-weight: 600; text-align: center; padding: 6px;
+  }
+  .photo-box.has-img { padding: 0; border-style: solid; }
+  .photo-box img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .photo-slot:focus-within .photo-box { outline: 3px solid var(--accent); outline-offset: 2px; }
+  .photo-name { display: block; text-align: center; font-size: 12px; color: var(--text-2); margin-top: 4px; }
+  .compare { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+  .compare + .compare { margin-top: 18px; }
+  .compare-title { grid-column: 1 / -1; font-weight: 600; font-size: 14px; }
+
+  /* Evolução */
+  .evo-wrap { overflow-x: auto; margin-top: 8px; }
+  .evo-table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; font-size: 15px; }
+  .evo-table th, .evo-table td { padding: 10px 6px; text-align: right; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  .evo-table th:first-child, .evo-table td:first-child { text-align: left; padding-left: 0; }
+  .evo-table th { font-size: 12px; font-weight: 600; color: var(--text-2); letter-spacing: .04em; text-transform: uppercase; }
+  .evo-table td:last-child { font-weight: 600; color: var(--teal); }
+  .evo-table tr:last-child td { border-bottom: 0; }
+  .consent { border-top: 0 !important; margin: 18px 0 6px; }
+  .consent span { font-size: 14px; }
   .day-row:disabled { cursor: not-allowed; opacity: .6; }
   @media (prefers-reduced-motion: reduce) { details.fold > summary svg { transition: none; } }
 
@@ -280,6 +308,17 @@ const CONFIG = {
     { id: 'abdomen', label: 'Abdômen' },
     { id: 'quadril', label: 'Quadril' }
   ],
+  // Fotos de antes e depois: ficam só no aparelho da cliente.
+  poses: [
+    { id: 'frente', label: 'De frente' },
+    { id: 'lado', label: 'De lado' },
+    { id: 'costas', label: 'De costas' }
+  ],
+  // Planilha que recebe os dados (veja planilha/COMO-CONFIGURAR.md).
+  // sheetUrl: o link do "App da Web" do Apps Script. Vazio = nada é enviado.
+  sheetUrl: '',
+  sheetKey: 've7d-2026', // igual a CHAVE em planilha/Codigo.gs
+  consentText: 'Autorizo o envio do meu nome, WhatsApp, peso, medidas e comentários para a equipe da Profe Laura acompanhar a minha jornada. As fotos não são enviadas.',
   // Link da aula "Como tirar suas fotos e medidas" (vazio mostra "EM BREVE").
   measureLessonUrl: '',
   resetMessage: 'Reiniciar a jornada e apagar o seu progresso?',
@@ -401,12 +440,16 @@ function emptyProgress() {
   };
 }
 function loadState() {
-  const base = { name: null, start: null, ...emptyProgress() };
+  const base = { name: null, phone: null, consent: false, start: null, final: null, device: null, ...emptyProgress() };
   try {
     const saved = JSON.parse(localStorage.getItem(CONFIG.storageKey) || 'null');
     if (saved && typeof saved === 'object') {
       if (typeof saved.name === 'string') base.name = saved.name;
       if (saved.start && typeof saved.start === 'object' && saved.start.measures) base.start = saved.start;
+      if (saved.final && typeof saved.final === 'object' && saved.final.measures) base.final = saved.final;
+      if (typeof saved.phone === 'string') base.phone = saved.phone;
+      if (typeof saved.device === 'string') base.device = saved.device;
+      base.consent = saved.consent === true;
       if (Array.isArray(saved.done)) base.done = base.done.map((_, i) => !!saved.done[i]);
       if (Array.isArray(saved.recovered)) base.recovered = base.recovered.map((_, i) => !!saved.recovered[i]);
       ['notes', 'reasons'].forEach(k => {
@@ -417,6 +460,7 @@ function loadState() {
       }
     }
   } catch (e) { /* armazenamento indisponível: segue sem salvar */ }
+  if (!base.device) base.device = 'ap-' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
   return base;
 }
 function saveState() {
@@ -425,10 +469,12 @@ function saveState() {
 
 let state = loadState();
 // A tela atual não é salva: ao recarregar, volta para a Jornada (ou Boas-vindas).
-const onboarded = () => !!(state.name && state.start);
+const onboarded = () => !!(state.name && state.phone && state.consent && state.start);
 let view = { screen: onboarded() ? 'journey' : 'welcome', day: null };
 // Rascunho do cadastro: mantém o que foi digitado ao abrir a tela de fotos e medidas.
-let draft = { name: state.name || '', weight: '', measures: {} };
+let draft = { name: state.name || '', phone: '', consent: false, weight: '', measures: {} };
+// Rascunho das medidas finais (tela de resultado).
+let finalDraft = { weight: '', measures: {}, editing: false };
 
 const doneCount = () => state.done.filter(Boolean).length;
 const allDone = () => doneCount() === TOTAL;
@@ -449,6 +495,153 @@ const communityCard = () => `
     <p class="muted">Imagine ter acompanhamento todos os dias, por 12 meses, para nunca mais precisar recomeçar do zero.</p>
     <a class="btn" href="${esc(CONFIG.communityUrl)}" target="_blank" rel="noopener">Conhecer a Comunidade Corpo Feliz</a>
   </section>`;
+
+/* =====================================================================
+   ENVIO PARA A PLANILHA
+   Cada evento entra numa fila salva no aparelho e é enviado quando há
+   internet. Se o envio falhar, tenta de novo na próxima abertura.
+   ===================================================================== */
+const OUTBOX_KEY = CONFIG.storageKey + '-envios';
+let outbox = [];
+try { outbox = JSON.parse(localStorage.getItem(OUTBOX_KEY) || '[]'); } catch (e) { outbox = []; }
+if (!Array.isArray(outbox)) outbox = [];
+const saveOutbox = () => { try { localStorage.setItem(OUTBOX_KEY, JSON.stringify(outbox.slice(-300))); } catch (e) { /* ignora */ } };
+
+function progressSummary() {
+  const last = state.done.lastIndexOf(true);
+  return {
+    concluidos: doneCount(),
+    recuperados: state.recovered.filter((r, i) => r && state.done[i]).length,
+    ultimoDia: last === -1 ? '' : last + 1
+  };
+}
+
+const toSheetMeasures = m => m && { peso: m.weight, medidas: m.measures };
+
+// tipo: cadastro | comentario | nao_consegui | dia | resultado
+function track(tipo, extra = {}) {
+  const ev = {
+    tipo, quando: new Date().toISOString(), aparelho: state.device,
+    nome: state.name, whatsapp: state.phone, progresso: progressSummary(), ...extra
+  };
+  // Comentário e motivo: só a versão mais recente de cada dia precisa ir.
+  if (tipo === 'comentario' || tipo === 'nao_consegui') {
+    outbox = outbox.filter(o => !(o.tipo === tipo && o.dia === ev.dia));
+  }
+  outbox.push(ev);
+  saveOutbox();
+  flushOutbox();
+}
+
+let flushing = false;
+async function flushOutbox() {
+  if (flushing || !CONFIG.sheetUrl || !outbox.length) return;
+  flushing = true;
+  try {
+    while (outbox.length) {
+      const ev = outbox[0];
+      // text/plain + no-cors: o Apps Script recebe sem bloqueio do navegador.
+      await fetch(CONFIG.sheetUrl, {
+        method: 'POST', mode: 'no-cors', keepalive: true,
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ ...ev, chave: CONFIG.sheetKey })
+      });
+      outbox.shift();
+      saveOutbox();
+    }
+  } catch (e) {
+    /* sem internet: fica na fila */
+  } finally {
+    flushing = false;
+  }
+}
+window.addEventListener('online', flushOutbox);
+
+// Comentários e motivos são enviados quando ela para de digitar.
+const textTimers = {};
+function trackText(field, day, text) {
+  const tipo = field === 'notes' ? 'comentario' : 'nao_consegui';
+  clearTimeout(textTimers[tipo + day]);
+  textTimers[tipo + day] = setTimeout(() => {
+    if (text.trim()) track(tipo, { dia: day, texto: text.trim() });
+  }, 2500);
+}
+
+/* =====================================================================
+   FOTOS (guardadas só no aparelho, no IndexedDB)
+   ===================================================================== */
+const photoUrls = {}; // 'antes-frente' -> URL da imagem
+let photoDb = null;
+
+function openPhotoDb() {
+  return new Promise(resolve => {
+    try {
+      const req = indexedDB.open(CONFIG.storageKey + '-fotos', 1);
+      req.onupgradeneeded = () => req.result.createObjectStore('fotos');
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => resolve(null);
+    } catch (e) { resolve(null); }
+  });
+}
+function photoTx(mode, fn) {
+  return new Promise(resolve => {
+    if (!photoDb) return resolve(null);
+    try {
+      const tx = photoDb.transaction('fotos', mode);
+      const req = fn(tx.objectStore('fotos'));
+      tx.oncomplete = () => resolve(req && req.result);
+      tx.onerror = () => resolve(null);
+    } catch (e) { resolve(null); }
+  });
+}
+async function loadPhotos() {
+  photoDb = await openPhotoDb();
+  for (const phase of ['antes', 'depois']) {
+    for (const pose of CONFIG.poses) {
+      const key = phase + '-' + pose.id;
+      const blob = await photoTx('readonly', s => s.get(key));
+      if (blob) photoUrls[key] = URL.createObjectURL(blob);
+    }
+  }
+}
+// Reduz a foto para no máximo 1200 px, em JPEG, para ocupar pouco espaço.
+function shrinkImage(file) {
+  return new Promise(resolve => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      const scale = Math.min(1, 1200 / Math.max(img.width, img.height));
+      const c = document.createElement('canvas');
+      c.width = Math.round(img.width * scale);
+      c.height = Math.round(img.height * scale);
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(url);
+      c.toBlob(b => resolve(b || file), 'image/jpeg', 0.85);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); resolve(file); };
+    img.src = url;
+  });
+}
+async function savePhoto(key, file) {
+  const blob = await shrinkImage(file);
+  await photoTx('readwrite', s => s.put(blob, key));
+  if (photoUrls[key]) URL.revokeObjectURL(photoUrls[key]);
+  photoUrls[key] = URL.createObjectURL(blob);
+}
+
+function photoSlot(phase, pose) {
+  const key = phase + '-' + pose.id, url = photoUrls[key], id = 'ph-' + key;
+  return `
+    <div class="photo-slot">
+      <label class="photo-box ${url ? 'has-img' : ''}" for="${id}">
+        ${url ? `<img src="${url}" alt="Foto ${phase === 'antes' ? 'de início' : 'final'}: ${esc(pose.label.toLowerCase())}">`
+              : `${svg('<path d="M12 5v14M5 12h14"/>', 22)}<span>Adicionar</span>`}
+      </label>
+      <input class="sr-only" type="file" accept="image/*" id="${id}" data-photo="${key}" aria-label="${url ? 'Trocar' : 'Adicionar'} foto ${esc(pose.label.toLowerCase())}">
+      <span class="photo-name">${esc(pose.label)}</span>
+    </div>`;
+}
+const photoGrid = phase => `<div class="photo-grid">${CONFIG.poses.map(p => photoSlot(phase, p)).join('')}</div>`;
 
 /* =====================================================================
    TELAS
@@ -479,12 +672,22 @@ function renderWelcome() {
     <form id="welcome-form" novalidate>
       <label class="field-label" for="name">Como você quer ser chamada?</label>
       <input class="input" id="name" name="name" type="text" placeholder="Seu nome" autocomplete="given-name" maxlength="40" value="${esc(draft.name)}">
+      <label class="field-label" for="phone" style="margin-top:4px">Seu WhatsApp</label>
+      <input class="input" id="phone" name="phone" type="tel" inputmode="tel" placeholder="(11) 98888-7777" autocomplete="tel-national" value="${esc(draft.phone)}" aria-describedby="phone-help">
+      <p class="muted small" id="phone-help" style="margin-top:-8px">Use o mesmo número que você informou na compra.</p>
       <h2 class="h-card form-section">Seu ponto de partida</h2>
-      <p class="muted small">Esses números ficam salvos só no seu celular.</p>
+      <p class="muted small">No final dos 7 dias você mede de novo e vê a sua evolução.</p>
       <div class="field-row">
         ${numberField('weight', 'Peso', 'kg', draft.weight)}
         ${measures}
       </div>
+      <h2 class="h-card form-section">Suas fotos de início <span class="muted small" style="font-family:var(--font-body);font-weight:500">(opcional)</span></h2>
+      <p class="muted small">Ficam só no seu celular, para comparar lado a lado no final. Não são enviadas para ninguém.</p>
+      ${photoGrid('antes')}
+      <label class="step consent">
+        <input type="checkbox" id="consent" ${draft.consent ? 'checked' : ''}>
+        <span>${esc(CONFIG.consentText)}</span>
+      </label>
       <p class="form-error" id="form-error" role="alert" hidden></p>
       <button class="btn" type="submit" id="start-btn">Começar o Dia 1</button>
     </form>
@@ -512,7 +715,7 @@ function renderGuide() {
         <li>Tire 3 fotos: de frente, de lado e de costas.</li>
         <li>Use roupa justa ou de ginástica, em um lugar com boa luz.</li>
         <li>Deixe o celular na altura do umbigo, apoiado ou com ajuda de alguém.</li>
-        <li>As fotos ficam só no seu celular. Você não precisa enviar para ninguém.</li>
+        <li>Você pode guardar as fotos no app. Elas ficam só no seu celular e aparecem lado a lado com as fotos finais no Dia 7.</li>
       </ul>
     </section>
     <section class="card">
@@ -569,7 +772,11 @@ function renderJourney() {
         <p class="muted small">${n} de ${TOTAL} dias concluídos</p>
       </div>
     </section>
-    ${complete ? communityCard() : `<button class="btn" type="button" data-day="${next}">Continuar: Dia ${next}</button>`}
+    ${complete
+      ? (state.final
+        ? `<button class="btn secondary" type="button" data-go="result">Ver minha evolução</button>${communityCard()}`
+        : `<button class="btn" type="button" data-go="result">Registrar medidas finais e ver meu resultado</button>`)
+      : `<button class="btn" type="button" data-day="${next}">Continuar: Dia ${next}</button>`}
     <h2 class="h-card section-title">Os 7 dias</h2>
     ${rows}
     <button class="btn secondary" type="button" id="reset" style="margin-top:12px">Reiniciar jornada</button>
@@ -596,7 +803,7 @@ function renderDay(num) {
   } else {
     action = `
       <button class="btn" type="button" id="toggle-day" aria-disabled="${complete ? 'false' : 'true'}" aria-describedby="day-hint">Concluir o Dia ${num}</button>
-      <p class="hint" id="day-hint">${complete ? (num < TOTAL ? `Ao concluir, o Dia ${num + 1} é liberado.` : 'Último dia da jornada.') : `Marque os ${d.steps.length} passos para concluir o dia.`}</p>
+      <p class="hint" id="day-hint">${complete ? (num < TOTAL ? `Ao concluir, o Dia ${num + 1} é liberado.` : 'Ao concluir, você registra as suas medidas finais e vê a sua evolução.') : `Marque os ${d.steps.length} passos para concluir o dia.`}</p>
       ${complete ? '' : `
       <details class="card fold" id="not-done" ${state.reasons[i] ? 'open' : ''}>
         <summary>Não consegui completar ${ICON.chev}</summary>
@@ -635,13 +842,87 @@ function renderDay(num) {
       ${steps}
     </section>
     ${action}
-    ${num === TOTAL ? communityCard() : ''}
+    ${num === TOTAL && done ? `<button class="btn" type="button" data-go="result">Ver meu resultado</button>` : ''}
     <section class="card" style="margin-top:14px">
       <h2 class="h-card"><label for="note">Comentários do Dia ${num}</label></h2>
-      <p class="muted small">Como foi o seu dia? Escreva o que quiser lembrar. Fica salvo só no seu celular.</p>
+      <p class="muted small">Como foi o seu dia? Conte para a equipe da Profe Laura o que quiser.</p>
       <textarea class="textarea" id="note" data-field="notes" placeholder="Escreva aqui…" style="margin-top:10px">${esc(state.notes[i])}</textarea>
       <p class="saved-note" id="note-saved" aria-live="polite"></p>
     </section>
+    ${footer()}`;
+}
+
+const fmt = (n, dec = 1) => Number(n).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: dec });
+const fmtDiff = d => (d > 0 ? '+' : d < 0 ? '−' : '') + fmt(Math.abs(d));
+const fmtDate = iso => iso ? iso.split('-').reverse().join('/') : '';
+
+function renderResult() {
+  if (!allDone()) return renderJourney();
+  if (!state.final || finalDraft.editing) {
+    const measures = CONFIG.measures.map(m => numberField('m-' + m.id + '-f', m.label, 'cm', finalDraft.measures[m.id])).join('');
+    const missingBefore = CONFIG.poses.some(p => !photoUrls['antes-' + p.id]);
+    return `
+      <button class="btn-back" type="button" data-go="journey">${ICON.back} Jornada</button>
+      <div><span class="tag">SEU RESULTADO</span></div>
+      <h1 class="h-screen">Você completou os 7 dias, ${esc(state.name)}.</h1>
+      <p class="muted stack-top">Agora meça de novo, do mesmo jeito que no início: de manhã, antes de comer, com a mesma balança e a fita nos mesmos pontos.</p>
+      <form id="final-form" novalidate>
+        <h2 class="h-card form-section">Suas medidas de hoje</h2>
+        <div class="field-row">
+          ${numberField('weight-f', 'Peso', 'kg', finalDraft.weight)}
+          ${measures}
+        </div>
+        <h2 class="h-card form-section">Suas fotos de hoje <span class="muted small" style="font-family:var(--font-body);font-weight:500">(opcional)</span></h2>
+        <p class="muted small">Mesma roupa, mesmo lugar e mesma posição das fotos de início. Ficam só no seu celular.</p>
+        ${photoGrid('depois')}
+        ${missingBefore ? `
+        <h2 class="h-card form-section">Fotos de início</h2>
+        <p class="muted small">Tirou as fotos no começo mas não guardou no app? Adicione aqui para comparar.</p>
+        ${photoGrid('antes')}` : ''}
+        <p class="form-error" id="final-error" role="alert" hidden style="margin-top:18px"></p>
+        <button class="btn" type="submit" style="margin-top:18px">Ver minha evolução</button>
+      </form>
+      ${footer()}`;
+  }
+
+  const s = state.start, f = state.final;
+  const rows = [['Peso', 'kg', s.weight, f.weight]]
+    .concat(CONFIG.measures.map(m => [m.label, 'cm', s.measures[m.id], f.measures[m.id]]))
+    .filter(r => r[2] != null && r[3] != null)
+    .map(([label, unit, a, b]) => `
+      <tr><td>${esc(label)}</td><td>${fmt(a)} ${unit}</td><td>${fmt(b)} ${unit}</td><td>${fmtDiff(Math.round((b - a) * 10) / 10)} ${unit}</td></tr>`).join('');
+
+  const pairs = CONFIG.poses.map(p => {
+    const a = photoUrls['antes-' + p.id], b = photoUrls['depois-' + p.id];
+    if (!a && !b) return '';
+    const fig = (url, cap, phase) => url
+      ? `<figure style="margin:0"><img src="${url}" alt="${cap}, ${esc(p.label.toLowerCase())}" style="width:100%;aspect-ratio:3/4;object-fit:cover;border-radius:14px;display:block"><figcaption class="photo-name">${cap}</figcaption></figure>`
+      : `<div>${photoSlot(phase, p)}</div>`;
+    return `<div class="compare"><span class="compare-title">${esc(p.label)}</span>
+      ${fig(a, 'Início · ' + fmtDate(s.date), 'antes')}${fig(b, 'Dia 7 · ' + fmtDate(f.date), 'depois')}</div>`;
+  }).join('');
+
+  return `
+    <button class="btn-back" type="button" data-go="journey">${ICON.back} Jornada</button>
+    <div><span class="tag">SUA EVOLUÇÃO</span></div>
+    <h1 class="h-screen">Você voltou ao eixo, ${esc(state.name)}.</h1>
+    <p class="muted stack-top" style="margin-bottom:18px">Sete dias seguidos cuidando de você. Os números contam uma parte da história; a outra parte é o que você aprendeu a fazer quando o dia sai do roteiro.</p>
+    <section class="card">
+      <h2 class="h-card">Suas medidas</h2>
+      <p class="muted small">De ${fmtDate(s.date)} a ${fmtDate(f.date)}</p>
+      <div class="evo-wrap">
+        <table class="evo-table">
+          <thead><tr><th scope="col">Medida</th><th scope="col">Início</th><th scope="col">Dia 7</th><th scope="col">Diferença</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    </section>
+    <section class="card">
+      <h2 class="h-card">Suas fotos lado a lado</h2>
+      ${pairs || `<p class="muted small">Você ainda não guardou fotos no app. Adicione as de início e as de hoje para comparar.</p>${photoGrid('antes')}${photoGrid('depois')}`}
+    </section>
+    <button class="btn secondary" type="button" id="edit-final">Corrigir medidas de hoje</button>
+    ${communityCard()}
     ${footer()}`;
 }
 
@@ -766,14 +1047,14 @@ function go(screen, day = null) {
 function render() {
   const app = document.getElementById('app');
   const nav = document.getElementById('nav');
-  const screens = { welcome: renderWelcome, guide: renderGuide, journey: renderJourney, day: () => renderDay(view.day), plate: renderPlate, kit: renderKit, bonus: renderBonus };
+  const screens = { welcome: renderWelcome, guide: renderGuide, journey: renderJourney, day: () => renderDay(view.day), plate: renderPlate, kit: renderKit, bonus: renderBonus, result: renderResult };
   app.innerHTML = screens[view.screen]();
 
   const showNav = onboarded();
   app.classList.toggle('has-nav', showNav);
   nav.hidden = !showNav;
   if (showNav) {
-    const active = view.screen === 'day' ? 'journey' : view.screen;
+    const active = view.screen === 'day' || view.screen === 'result' ? 'journey' : view.screen;
     nav.innerHTML = `<div class="nav-inner">${NAV.map(item => `
       <button type="button" data-go="${item.id}" ${item.id === active ? 'aria-current="page"' : ''}>
         ${item.icon}<span>${item.label}</span>
@@ -798,15 +1079,41 @@ function readForm() {
   const errors = [];
   const name = draft.name.trim();
   if (!name) errors.push({ id: 'name', msg: 'o seu nome' });
-  const weight = parseNumber(draft.weight);
-  if (weight === null || weight < FIELD_LIMITS.weight[0] || weight > FIELD_LIMITS.weight[1]) errors.push({ id: 'weight', msg: 'o peso (em kg)' });
+  const phone = normalizePhone(draft.phone);
+  if (!phone) errors.push({ id: 'phone', msg: 'o seu WhatsApp com DDD' });
+  const { weight, measures } = readMeasures(draft, errors);
+  if (!draft.consent) errors.push({ id: 'consent', msg: 'a autorização de envio dos dados' });
+  return { errors, name, phone, weight, measures };
+}
+
+// Devolve o número com 55 + DDD (ex.: 5511988887777), ou null se estiver incompleto.
+function normalizePhone(v) {
+  let d = String(v || '').replace(/\D/g, '');
+  if (d.length >= 12 && d.startsWith('55')) d = d.slice(2);
+  return d.length === 10 || d.length === 11 ? '55' + d : null;
+}
+
+// Lê peso e medidas de um rascunho; usado no cadastro e no resultado final.
+function readMeasures(src, errors, suffix = '') {
+  const weight = parseNumber(src.weight);
+  if (weight === null || weight < FIELD_LIMITS.weight[0] || weight > FIELD_LIMITS.weight[1]) errors.push({ id: 'weight' + suffix, msg: 'o peso (em kg)' });
   const measures = {};
   CONFIG.measures.forEach(m => {
-    const v = parseNumber(draft.measures[m.id]);
-    if (v === null || v < FIELD_LIMITS.measure[0] || v > FIELD_LIMITS.measure[1]) errors.push({ id: 'm-' + m.id, msg: m.label.toLowerCase() + ' (em cm)' });
+    const v = parseNumber(src.measures[m.id]);
+    if (v === null || v < FIELD_LIMITS.measure[0] || v > FIELD_LIMITS.measure[1]) errors.push({ id: 'm-' + m.id + suffix, msg: m.label.toLowerCase() + ' (em cm)' });
     else measures[m.id] = v;
   });
-  return { errors, name, weight, measures };
+  return { weight, measures };
+}
+
+function showErrors(errors, boxId, prefix) {
+  const box = document.getElementById(boxId);
+  document.querySelectorAll('[aria-invalid]').forEach(el => el.removeAttribute('aria-invalid'));
+  errors.forEach(err => { const el = document.getElementById(err.id); if (el) el.setAttribute('aria-invalid', 'true'); });
+  box.textContent = prefix + errors.map(err => err.msg).join(', ').replace(/, ([^,]*)$/, ' e $1') + '.';
+  box.hidden = false;
+  const first = document.getElementById(errors[0].id);
+  if (first) first.focus();
 }
 
 function updateStartButton() {
@@ -821,11 +1128,12 @@ document.addEventListener('input', e => {
   if (!field || view.screen !== 'day') return;
   state[field][view.day - 1] = e.target.value;
   saveState();
+  trackText(field, view.day, e.target.value);
   if (field === 'reasons') { const err = document.getElementById('reason-error'); if (err) err.hidden = true; }
   if (field === 'notes') {
     const note = document.getElementById('note-saved');
     clearTimeout(savedTimer);
-    savedTimer = setTimeout(() => { if (note) note.textContent = 'Salvo no seu celular.'; }, 600);
+    savedTimer = setTimeout(() => { if (note) note.textContent = 'Comentário salvo.'; }, 600);
   }
 });
 
@@ -833,6 +1141,8 @@ document.addEventListener('input', e => {
   if (view.screen !== 'welcome') return;
   const id = e.target.id;
   if (id === 'name') draft.name = e.target.value;
+  else if (id === 'phone') draft.phone = e.target.value;
+  else if (id === 'consent') draft.consent = e.target.checked;
   else if (id === 'weight') draft.weight = e.target.value;
   else if (id.startsWith('m-')) draft.measures[id.slice(2)] = e.target.value;
   else return;
@@ -840,22 +1150,51 @@ document.addEventListener('input', e => {
   updateStartButton();
 });
 
+document.addEventListener('input', e => {
+  if (view.screen !== 'result') return;
+  const id = e.target.id;
+  if (id === 'weight-f') finalDraft.weight = e.target.value;
+  else if (id.startsWith('m-') && id.endsWith('-f')) finalDraft.measures[id.slice(2, -2)] = e.target.value;
+  else return;
+  e.target.removeAttribute('aria-invalid');
+});
+
+document.addEventListener('submit', e => {
+  if (e.target.id !== 'final-form') return;
+  e.preventDefault();
+  const errors = [];
+  const { weight, measures } = readMeasures(finalDraft, errors, '-f');
+  if (errors.length) return showErrors(errors, 'final-error', 'Para ver a sua evolução, preencha ');
+  state.final = { weight, measures, date: new Date().toISOString().slice(0, 10) };
+  finalDraft.editing = false;
+  saveState();
+  track('resultado', { final: toSheetMeasures(state.final) });
+  go('result');
+});
+
+// Foto escolhida: reduz, guarda no aparelho e mostra.
+document.addEventListener('change', async e => {
+  const input = e.target;
+  if (!input.dataset || !input.dataset.photo || !input.files || !input.files[0]) return;
+  const box = input.previousElementSibling;
+  if (box) box.innerHTML = '<span>Salvando…</span>';
+  await savePhoto(input.dataset.photo, input.files[0]);
+  const y = window.scrollY;
+  render();
+  window.scrollTo(0, y);
+});
+
 document.addEventListener('submit', e => {
   if (e.target.id !== 'welcome-form') return;
   e.preventDefault();
-  const { errors, name, weight, measures } = readForm();
-  const box = document.getElementById('form-error');
-  document.querySelectorAll('#welcome-form [aria-invalid]').forEach(el => el.removeAttribute('aria-invalid'));
-  if (errors.length) {
-    errors.forEach(err => document.getElementById(err.id).setAttribute('aria-invalid', 'true'));
-    box.textContent = 'Para começar, preencha ' + errors.map(err => err.msg).join(', ').replace(/, ([^,]*)$/, ' e $1') + '.';
-    box.hidden = false;
-    document.getElementById(errors[0].id).focus();
-    return;
-  }
+  const { errors, name, phone, weight, measures } = readForm();
+  if (errors.length) return showErrors(errors, 'form-error', 'Para começar, preencha ');
   state.name = name;
+  state.phone = phone;
+  state.consent = true;
   state.start = { weight, measures, date: new Date().toISOString().slice(0, 10) };
   saveState();
+  track('cadastro', { inicio: toSheetMeasures(state.start) });
   go('journey');
 });
 
@@ -881,7 +1220,8 @@ document.addEventListener('click', e => {
         return;
       }
       saveState();
-      if (state.done[i] && view.day < TOTAL) go('journey');
+      track('dia', { dia: view.day, concluido: state.done[i], recuperacao: false });
+      if (state.done[i]) go(view.day < TOTAL ? 'journey' : 'result');
       else render();
       break;
     }
@@ -900,15 +1240,24 @@ document.addEventListener('click', e => {
       state.done[i] = true;
       state.recovered[i] = true;
       saveState();
-      go(view.day < TOTAL ? 'journey' : 'day', view.day < TOTAL ? null : view.day);
+      track('dia', { dia: view.day, concluido: true, recuperacao: true });
+      go(view.day < TOTAL ? 'journey' : 'result');
       break;
     }
     case 'reset':
       if (confirm(CONFIG.resetMessage)) {
-        Object.assign(state, emptyProgress());
+        Object.assign(state, emptyProgress(), { final: null });
         saveState();
         render();
       }
+      break;
+    case 'edit-final':
+      finalDraft = {
+        weight: String(state.final.weight).replace('.', ','),
+        measures: Object.fromEntries(Object.entries(state.final.measures).map(([k, v]) => [k, String(v).replace('.', ',')])),
+        editing: true
+      };
+      go('result');
       break;
     case 'timer-toggle':
       timer.running ? timerStop() : timerStart();
@@ -936,6 +1285,8 @@ document.addEventListener('change', e => {
 });
 
 render();
+loadPhotos().then(() => { if (Object.keys(photoUrls).length) render(); });
+flushOutbox();
 </script>
 </body>
 </html>
