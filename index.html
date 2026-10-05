@@ -224,6 +224,18 @@
   details.fold .fold-body { padding: 0 18px 18px; }
   .recovery { border: 2px solid var(--teal); }
 
+  /* Progresso */
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 14px; }
+  .stat { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 12px 10px; text-align: center; min-width: 0; }
+  .stat-num { display: block; font-family: var(--font-title); font-weight: 800; font-size: 26px; line-height: 1.1; font-variant-numeric: tabular-nums; }
+  .stat-label { display: block; font-size: 12px; color: var(--text-2); margin-top: 4px; line-height: 1.3; }
+  .start-list { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 12px; margin: 10px 0 0; }
+  .start-list div { display: flex; justify-content: space-between; gap: 8px; border-bottom: 1px solid var(--border); padding: 6px 0; font-variant-numeric: tabular-nums; }
+  .start-list dt { color: var(--text-2); font-size: 14px; }
+  .start-list dd { margin: 0; font-weight: 600; white-space: nowrap; }
+  @media (max-width: 359px) { .start-list { grid-template-columns: 1fr; } }
+  .day-sub.ok { color: var(--teal); font-weight: 600; }
+
   /* Fotos */
   .photo-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 12px; }
   .photo-slot { min-width: 0; }
@@ -293,7 +305,7 @@
     background: var(--card); border-top: 1px solid var(--border);
     padding-bottom: env(safe-area-inset-bottom);
   }
-  .nav-inner { max-width: var(--max-width); margin: 0 auto; display: grid; grid-template-columns: repeat(4, 1fr); }
+  .nav-inner { max-width: var(--max-width); margin: 0 auto; display: grid; grid-template-columns: repeat(5, 1fr); }
   .nav button {
     min-height: 60px; border: 0; background: none; color: var(--text-2);
     display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
@@ -439,6 +451,7 @@ const ICON = {
   check: svg('<path d="M5 12.5l4.5 4.5L19 7.5"/>', 16, 'stroke-width="3"'),
   chev: svg('<path d="M9 6l6 6-6 6"/>', 20),
   back: svg('<path d="M15 6l-6 6 6 6"/>', 20),
+  progress: svg('<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>'),
   lock: svg('<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>', 20),
   external: svg('<path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/>', 18)
 };
@@ -897,6 +910,88 @@ const fmt = (n, dec = 1) => Number(n).toLocaleString('pt-BR', { minimumFractionD
 const fmtDiff = d => (d > 0 ? '+' : d < 0 ? '−' : '') + fmt(Math.abs(d));
 const fmtDate = iso => iso ? iso.split('-').reverse().join('/') : '';
 
+// Tabela Início → Dia 7 → Diferença (usada no Resultado e no Progresso).
+function evoTable() {
+  const s = state.start, f = state.final;
+  const rows = [['Peso', 'kg', s.weight, f.weight]]
+    .concat(CONFIG.measures.map(m => [m.label, 'cm', s.measures[m.id], f.measures[m.id]]))
+    .filter(r => r[2] != null && r[3] != null)
+    .map(([label, unit, a, b]) => `
+      <tr><td>${esc(label)}</td><td>${fmt(a)} ${unit}</td><td>${fmt(b)} ${unit}</td><td>${fmtDiff(Math.round((b - a) * 10) / 10)} ${unit}</td></tr>`).join('');
+  return `
+    <table class="evo-table">
+      <thead><tr><th scope="col">Medida</th><th scope="col">Início</th><th scope="col">Dia 7</th><th scope="col">Diferença</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
+// Aba Progresso: onde ela está e o que já conquistou.
+function renderProgress() {
+  const n = doneCount(), complete = allDone(), next = suggestedDay();
+  const recovered = state.recovered.filter((r, i) => r && state.done[i]).length;
+  const stepsDone = state.steps.flat().filter(Boolean).length, stepsTotal = state.steps.flat().length;
+  const s = state.start;
+
+  const cta = !complete
+    ? `<button class="btn" type="button" data-day="${next}">Continuar: Dia ${next}</button>`
+    : state.final
+      ? `<button class="btn secondary" type="button" data-go="result">Ver minha evolução com fotos</button>`
+      : `<button class="btn" type="button" data-go="result">Registrar medidas finais e ver meu resultado</button>`;
+
+  const days = CONFIG.days.map((d, i) => {
+    const num = i + 1, open = isUnlocked(num), done = state.done[i];
+    const k = state.steps[i].filter(Boolean).length;
+    const status = done
+      ? (state.recovered[i] ? 'Concluído com a tarefa de recuperação' : 'Concluído')
+      : open ? `Em andamento · ${k} de ${state.steps[i].length} passos` : 'Bloqueado';
+    const extra = state.notes[i].trim() ? ' · comentário enviado' : '';
+    return `
+      <button class="day-row" type="button" data-day="${num}" ${open ? '' : 'disabled'}>
+        <span class="day-dot ${done ? 'done' : ''}">${done ? ICON.check + '<span class="sr-only">Concluído</span>' : num}</span>
+        <span class="day-text">
+          <span class="day-title">Dia ${num} · ${esc(d.theme)}</span>
+          <span class="day-sub ${done ? 'ok' : ''}">${status}${extra}</span>
+        </span>
+        <span class="chev">${open ? ICON.chev : ICON.lock}</span>
+      </button>`;
+  }).join('');
+
+  const startCard = !s ? '' : state.final ? `
+    <section class="card">
+      <h2 class="h-card">Sua evolução</h2>
+      <p class="muted small">De ${fmtDate(s.date)} a ${fmtDate(state.final.date)}</p>
+      <div class="evo-wrap">${evoTable()}</div>
+    </section>` : `
+    <section class="card">
+      <h2 class="h-card">Seu ponto de partida</h2>
+      <p class="muted small">Registrado em ${fmtDate(s.date)}. No Dia 7 você mede de novo e vê a diferença aqui.</p>
+      <dl class="start-list">
+        <div><dt>Peso</dt><dd>${fmt(s.weight)} kg</dd></div>
+        ${CONFIG.measures.map(m => `<div><dt>${esc(m.label)}</dt><dd>${fmt(s.measures[m.id])} cm</dd></div>`).join('')}
+      </dl>
+    </section>`;
+
+  return `
+    <h1 class="h-screen" style="margin-bottom:18px">Meu progresso</h1>
+    <section class="card progress">
+      ${ring(n)}
+      <div style="min-width:0">
+        <h2 class="h-card" style="margin-bottom:4px">${complete ? 'Você voltou ao eixo' : `Você está no Dia ${next}`}</h2>
+        <p class="muted small">${complete ? 'Os 7 dias estão concluídos.' : esc(CONFIG.days[next - 1].theme)}</p>
+      </div>
+    </section>
+    ${cta}
+    <div class="stats">
+      <div class="stat"><span class="stat-num">${n}</span><span class="stat-label">dias concluídos</span></div>
+      <div class="stat"><span class="stat-num">${stepsDone}</span><span class="stat-label">de ${stepsTotal} passos marcados</span></div>
+      <div class="stat"><span class="stat-num">${recovered}</span><span class="stat-label">${recovered === 1 ? 'dia com recuperação' : 'dias com recuperação'}</span></div>
+    </div>
+    ${startCard}
+    <h2 class="h-card section-title">Seus dias</h2>
+    ${days}
+    ${footer()}`;
+}
+
 function renderResult() {
   if (!allDone()) return renderJourney();
   if (!state.final || finalDraft.editing) {
@@ -927,11 +1022,6 @@ function renderResult() {
   }
 
   const s = state.start, f = state.final;
-  const rows = [['Peso', 'kg', s.weight, f.weight]]
-    .concat(CONFIG.measures.map(m => [m.label, 'cm', s.measures[m.id], f.measures[m.id]]))
-    .filter(r => r[2] != null && r[3] != null)
-    .map(([label, unit, a, b]) => `
-      <tr><td>${esc(label)}</td><td>${fmt(a)} ${unit}</td><td>${fmt(b)} ${unit}</td><td>${fmtDiff(Math.round((b - a) * 10) / 10)} ${unit}</td></tr>`).join('');
 
   const pairs = CONFIG.poses.map(p => {
     const a = photoUrls['antes-' + p.id], b = photoUrls['depois-' + p.id];
@@ -952,10 +1042,7 @@ function renderResult() {
       <h2 class="h-card">Suas medidas</h2>
       <p class="muted small">De ${fmtDate(s.date)} a ${fmtDate(f.date)}</p>
       <div class="evo-wrap">
-        <table class="evo-table">
-          <thead><tr><th scope="col">Medida</th><th scope="col">Início</th><th scope="col">Dia 7</th><th scope="col">Diferença</th></tr></thead>
-          <tbody>${rows}</tbody>
-        </table>
+        ${evoTable()}
       </div>
     </section>
     <section class="card">
@@ -1076,6 +1163,7 @@ const NAV = [
   { id: 'journey', label: 'Jornada', icon: ICON.journey },
   { id: 'plate', label: 'Prato', icon: ICON.plate },
   { id: 'kit', label: 'Kit', icon: ICON.kit },
+  { id: 'progress', label: 'Progresso', icon: ICON.progress },
   { id: 'bonus', label: 'Bônus', icon: ICON.gift }
 ];
 
@@ -1098,14 +1186,14 @@ function go(screen, day = null) {
 function render() {
   const app = document.getElementById('app');
   const nav = document.getElementById('nav');
-  const screens = { welcome: renderWelcome, guide: renderGuide, journey: renderJourney, day: () => renderDay(view.day), plate: renderPlate, kit: renderKit, bonus: renderBonus, result: renderResult };
+  const screens = { welcome: renderWelcome, guide: renderGuide, journey: renderJourney, day: () => renderDay(view.day), plate: renderPlate, kit: renderKit, bonus: renderBonus, result: renderResult, progress: renderProgress };
   app.innerHTML = screens[view.screen]();
 
   const showNav = onboarded();
   app.classList.toggle('has-nav', showNav);
   nav.hidden = !showNav;
   if (showNav) {
-    const active = view.screen === 'day' || view.screen === 'result' ? 'journey' : view.screen;
+    const active = view.screen === 'day' ? 'journey' : view.screen === 'result' ? 'progress' : view.screen;
     nav.innerHTML = `<div class="nav-inner">${NAV.map(item => `
       <button type="button" data-go="${item.id}" ${item.id === active ? 'aria-current="page"' : ''}>
         ${item.icon}<span>${item.label}</span>
