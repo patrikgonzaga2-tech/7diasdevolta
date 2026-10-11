@@ -4,9 +4,20 @@ App de entrega do Desafio Volta ao Eixo 7D (Comunidade Corpo Feliz): uma jornada
 
 ## Como usar
 
-É um único arquivo, `index.html`, com HTML, CSS e JavaScript, sem servidor e sem banco de dados. Para ver, abra o arquivo no navegador. Para publicar, hospede-o em qualquer serviço de site estático (GitHub Pages, Netlify, Vercel etc.).
+É um único arquivo, `index.html`, com HTML, CSS e JavaScript. Ele é publicado pelo GitHub Pages em laurarosapersonal.site a partir do ramo principal: tudo o que entra nesse ramo vai ao ar.
 
-O progresso fica salvo no aparelho (armazenamento local do navegador, chave `ve7d`). Com a planilha ligada, o app também envia para o Google Planilhas o cadastro (nome, WhatsApp, peso e medidas), os comentários, os motivos de "não consegui", os dias concluídos e o resultado final. Se a cliente estiver sem internet, os envios esperam numa fila e saem na próxima abertura.
+## Conta da cliente
+
+A cliente entra com o e-mail e recebe um código, sem senha. O progresso fica no aparelho (chave `ve7d`, funciona sem internet) e também na conta, na tabela `app_progresso` do Supabase (projeto "Projeto Corpo Feliz"). Assim ela não perde nada se trocar de celular. O SQL da tabela está em [supabase/app_progresso.sql](supabase/app_progresso.sql). Cada cliente só enxerga a própria linha.
+
+- Quem já usava o app antigo não perde nada: ao entrar, o que estava no celular vai para a conta.
+- Se o código não puder ser enviado, ela pode seguir sem conta (só no celular) e entrar depois pela aba Progresso.
+- As fotos nunca saem do celular. Ficam separadas por conta no aparelho.
+- Para o e-mail chegar a qualquer cliente, o Supabase precisa de um serviço de e-mail próprio (SMTP). Sem ele, só chegam e-mails para quem é da equipe do projeto no Supabase.
+
+## Planilha
+
+Com a planilha ligada, o app também envia para o Google Planilhas o cadastro (nome, WhatsApp, peso e medidas), os comentários, os motivos de "não consegui", os dias concluídos e o resultado final. Se a cliente estiver sem internet, os envios esperam numa fila e saem na próxima abertura.
 
 As fotos de antes e depois ficam só no aparelho da cliente (IndexedDB) e aparecem lado a lado na tela de resultado.
 
@@ -25,6 +36,7 @@ Para ligar a planilha, siga [planilha/COMO-CONFIGURAR.md](planilha/COMO-CONFIGUR
 
 Os itens ajustáveis da especificação ficam no objeto `CONFIG`, no começo do `<script>` em `index.html`:
 
+- `supabaseUrl` e `supabaseKey`: endereço e chave pública do Supabase (a chave é pública por natureza)
 - `sheetUrl`: link do App da Web do Apps Script (vazio = nada é enviado)
 - `sheetKey`: chave que precisa ser igual a `CHAVE` em `planilha/Codigo.gs`
 - `consentText`: texto da autorização de envio dos dados
@@ -33,6 +45,7 @@ Os itens ajustáveis da especificação ficam no objeto `CONFIG`, no começo do 
 - `days[n].videoUrl`: link da vídeo aula de cada dia (vazio mostra "EM BREVE"; preenchido, mostra o botão "Assistir à vídeo aula")
 - `days[n]`: tema, subtítulo, título da vídeo aula, mensagem e os 3 passos de cada dia
 - `days[n].audioDescription`: descrição curta do áudio do dia (vazio mostra "EM BREVE")
+- `days[n].audioUrl`: link direto do arquivo de áudio (.mp3 ou .m4a), por exemplo `audios/dia1.mp3` com o arquivo na pasta `audios/` deste repositório (vazio mostra "EM BREVE"; preenchido, aparece o tocador)
 - `days[n].recoveryTask`: tarefa de recuperação do Kit, usada quando a cliente não completa os passos do dia
 - `timerSeconds`: duração do cronômetro (600 = 10 minutos)
 - `measures`: medidas pedidas no cadastro (nome, peso e medidas são obrigatórios para começar)

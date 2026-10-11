@@ -315,6 +315,19 @@
 
   .stack-top { margin-top: 6px; }
   .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); border: 0; }
+
+  /* Áudio liberado */
+  .audio-player { display: block; width: 100%; margin-top: 12px; }
+
+  /* Entrar com e-mail */
+  .code-input { text-align: center; font-size: 24px; letter-spacing: .3em; font-variant-numeric: tabular-nums; }
+  .link-btn {
+    display: inline-flex; align-items: center; min-height: 44px; padding: 0; margin: 0 0 6px;
+    background: none; border: 0; color: var(--accent); font-weight: 600; text-decoration: underline;
+  }
+  .link-btn[disabled] { color: var(--text-2); text-decoration: none; cursor: default; }
+  .notice { font-size: 14px; margin: 0 0 14px; }
+  .loading { min-height: 60vh; display: grid; place-items: center; color: var(--text-2); }
 </style>
 </head>
 <body>
@@ -328,6 +341,11 @@
    ===================================================================== */
 const CONFIG = {
   storageKey: 've7d',
+  // Conta da cliente (Supabase, projeto "Projeto Corpo Feliz"): entra com e-mail + código
+  // e o progresso fica salvo na tabela app_progresso (veja supabase/app_progresso.sql).
+  // Esta chave é pública por natureza: quem protege os dados são as regras da tabela.
+  supabaseUrl: 'https://fjlbvoephhextnxemygf.supabase.co',
+  supabaseKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZqbGJ2b2VwaGhleHRueGVteWdmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA1MDExOTEsImV4cCI6MjA5NjA3NzE5MX0.F7FrVguwG1rlEc8W7ktz-g3P-s0S9AwLsBmud7uzehY',
   communityUrl: 'https://teamcorpofeliz.com.br/',
   timerSeconds: 600,
   // Medidas pedidas no cadastro (todas obrigatórias, em cm). O peso é sempre pedido, em kg.
@@ -346,16 +364,18 @@ const CONFIG = {
   // sheetUrl: o link do "App da Web" do Apps Script. Vazio = nada é enviado.
   sheetUrl: 'https://script.google.com/macros/s/AKfycbwsC22EYofWsjJMRAS40IxtZa50tHsbQe3ga9Qts91bFQwUw-bdIX_A3yJodCDRHO99/exec',
   sheetKey: 've7d-2026', // igual a CHAVE em planilha/Codigo.gs
-  consentText: 'Autorizo o envio do meu nome, WhatsApp, peso, medidas e comentários para a equipe da Profe Laura acompanhar a minha jornada. As fotos não são enviadas.',
+  consentText: 'Autorizo guardar na minha conta e enviar para a equipe da Profe Laura o meu nome, WhatsApp, peso, medidas e comentários, para acompanhar a minha jornada. As fotos não são enviadas: ficam só no meu celular.',
   // Link da aula "Como tirar suas fotos e medidas" (vazio mostra "EM BREVE").
   measureLessonUrl: '',
   // Avisos dos botões no fim da Jornada.
   editDataMessage: 'Você volta ao cadastro para corrigir nome, WhatsApp, medidas e fotos. Seus dias concluídos e comentários continuam salvos, e você segue de onde parou.',
-  resetMessage: 'Tudo o que você fez neste celular será apagado e você recomeça do Dia 1:',
+  resetMessage: 'Tudo o que você fez será apagado, neste celular e na sua conta, e você recomeça do Dia 1:',
   footer: 'Conteúdo educativo. Não substitui avaliação, diagnóstico ou acompanhamento médico ou nutricional.',
   // Conteúdo dos 7 dias (primeira versão, revisar com a Laura).
   // Para liberar a vídeo aula, preencha "videoUrl" com o link.
   // "audioDescription" é a descrição curta do áudio (vazia mostra "EM BREVE").
+  // "audioUrl" é o link direto do arquivo de áudio (.mp3 ou .m4a), por exemplo "audios/dia1.mp3".
+  // Vazio mostra "EM BREVE"; preenchido, aparece o tocador. Link do Google Drive ou do YouTube não toca aqui.
   // "recoveryTask" é a tarefa de recuperação do Kit, para quando ela não completa os passos.
   days: [
     {
@@ -364,6 +384,7 @@ const CONFIG = {
       videoTitle: 'Como voltar na próxima refeição',
       videoUrl: '',
       audioDescription: '',
+      audioUrl: '',
       recoveryTask: 'Faça a próxima refeição completa, sem pular nada para compensar.',
       message: 'Escorregou? Tudo bem. Hoje o objetivo é um só: voltar na próxima refeição, sem pular nada para compensar.',
       steps: ['Ouvir o áudio do Dia 1', 'Montar a próxima refeição sem pular nenhuma para compensar', 'Escolher um horário possível para amanhã']
@@ -374,6 +395,7 @@ const CONFIG = {
       videoTitle: 'Montando o Prato Possível',
       videoUrl: '',
       audioDescription: '',
+      audioUrl: '',
       recoveryTask: 'Na próxima refeição, monte um prato simples com uma proteína e um legume.',
       message: 'Hoje você aprende a montar um prato simples, sem demonizar nenhum alimento e sem restrição extrema.',
       steps: ['Ouvir o áudio do Dia 2', 'Abrir o Guia do Prato Possível', 'Montar uma refeição seguindo o guia']
@@ -384,6 +406,7 @@ const CONFIG = {
       videoTitle: 'Seu plano B para dias imperfeitos',
       videoUrl: '',
       audioDescription: '',
+      audioUrl: '',
       recoveryTask: 'Escreva em uma frase o seu plano B para um dia corrido desta semana.',
       message: 'Um dia fora do roteiro não cancela o plano. Ele só pede um plano B.',
       steps: ['Ouvir o áudio do Dia 3', 'Ler o Kit Dia Imperfeito', 'Escolher o seu plano B para a semana']
@@ -394,6 +417,7 @@ const CONFIG = {
       videoTitle: 'Ativação de 10 minutos',
       videoUrl: '',
       audioDescription: '',
+      audioUrl: '',
       recoveryTask: 'Faça 3 minutos de movimento agora: caminhe pela casa ou alongue o corpo.',
       message: 'Hoje é só retomar o movimento. Dez minutos, em casa, no seu ritmo.',
       steps: ['Ouvir o áudio do Dia 4', 'Fazer uma Ativação de 10 minutos', 'Perceber como você se sente depois']
@@ -404,6 +428,7 @@ const CONFIG = {
       videoTitle: 'Protegendo o fim de semana',
       videoUrl: '',
       audioDescription: '',
+      audioUrl: '',
       recoveryTask: 'Escolha agora a sua refeição âncora de amanhã.',
       message: 'O fim de semana pode ser leve e gostoso. O que protege você é saber como voltar.',
       steps: ['Ouvir o áudio do Dia 5', 'Escolher a sua refeição âncora do fim de semana', 'Reler o Kit Dia Imperfeito']
@@ -414,6 +439,7 @@ const CONFIG = {
       videoTitle: 'Planejando a sua semana',
       videoUrl: '',
       audioDescription: '',
+      audioUrl: '',
       recoveryTask: 'Escolha um único horário possível para a ativação desta semana.',
       message: 'Hoje você deixa a próxima semana mais fácil, com pouco planejamento e nenhuma perfeição.',
       steps: ['Ouvir o áudio do Dia 6', 'Escolher 3 horários possíveis para a ativação', 'Pensar em uma refeição simples para cada dia']
@@ -424,6 +450,7 @@ const CONFIG = {
       videoTitle: 'Você voltou: e agora?',
       videoUrl: '',
       audioDescription: '',
+      audioUrl: '',
       recoveryTask: 'Releia o que você escreveu nos 7 dias e escolha um passo para manter.',
       message: 'Você provou que consegue voltar. O próximo passo é não precisar recomeçar do zero.',
       steps: ['Ouvir o áudio do Dia 7', 'Revisar a sua semana na Jornada', 'Conhecer a Comunidade Corpo Feliz']
@@ -470,39 +497,60 @@ function emptyProgress() {
     reasons: Array(TOTAL).fill('')       // motivo de não ter completado
   };
 }
-function loadState() {
-  const base = { name: null, phone: null, consent: false, start: null, final: null, device: null, ...emptyProgress() };
-  try {
-    const saved = JSON.parse(localStorage.getItem(CONFIG.storageKey) || 'null');
-    if (saved && typeof saved === 'object') {
-      if (typeof saved.name === 'string') base.name = saved.name;
-      if (saved.start && typeof saved.start === 'object' && saved.start.measures) base.start = saved.start;
-      if (saved.final && typeof saved.final === 'object' && saved.final.measures) base.final = saved.final;
-      if (typeof saved.phone === 'string') base.phone = saved.phone;
-      if (typeof saved.device === 'string') base.device = saved.device;
-      base.consent = saved.consent === true;
-      base.noPhotos = saved.noPhotos === true;
-      if (Array.isArray(saved.done)) base.done = base.done.map((_, i) => !!saved.done[i]);
-      if (Array.isArray(saved.recovered)) base.recovered = base.recovered.map((_, i) => !!saved.recovered[i]);
-      ['notes', 'reasons'].forEach(k => {
-        if (Array.isArray(saved[k])) base[k] = base[k].map((_, i) => typeof saved[k][i] === 'string' ? saved[k][i] : '');
-      });
-      if (Array.isArray(saved.steps)) {
-        base.steps = base.steps.map((row, i) => row.map((_, j) => !!(saved.steps[i] && saved.steps[i][j])));
-      }
-    }
-  } catch (e) { /* armazenamento indisponível: segue sem salvar */ }
-  if (!base.device) base.device = 'ap-' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+// Campos da jornada: são os que vão para a conta na nuvem.
+const SYNC_FIELDS = ['name', 'phone', 'consent', 'noPhotos', 'start', 'final', 'done', 'recovered', 'steps', 'notes', 'reasons', 'updatedAt'];
+
+// Confere e completa os dados salvos (no aparelho ou na conta).
+function sanitize(saved) {
+  const base = { name: null, phone: null, consent: false, noPhotos: false, start: null, final: null, updatedAt: 0, ...emptyProgress() };
+  if (!saved || typeof saved !== 'object') return base;
+  if (typeof saved.name === 'string') base.name = saved.name;
+  if (saved.start && typeof saved.start === 'object' && saved.start.measures) base.start = saved.start;
+  if (saved.final && typeof saved.final === 'object' && saved.final.measures) base.final = saved.final;
+  if (typeof saved.phone === 'string') base.phone = saved.phone;
+  if (typeof saved.updatedAt === 'number') base.updatedAt = saved.updatedAt;
+  base.consent = saved.consent === true;
+  base.noPhotos = saved.noPhotos === true;
+  if (Array.isArray(saved.done)) base.done = base.done.map((_, i) => !!saved.done[i]);
+  if (Array.isArray(saved.recovered)) base.recovered = base.recovered.map((_, i) => !!saved.recovered[i]);
+  ['notes', 'reasons'].forEach(k => {
+    if (Array.isArray(saved[k])) base[k] = base[k].map((_, i) => typeof saved[k][i] === 'string' ? saved[k][i] : '');
+  });
+  if (Array.isArray(saved.steps)) {
+    base.steps = base.steps.map((row, i) => row.map((_, j) => !!(saved.steps[i] && saved.steps[i][j])));
+  }
   return base;
 }
-function saveState() {
+function loadState() {
+  let saved = null;
+  try { saved = JSON.parse(localStorage.getItem(CONFIG.storageKey) || 'null'); } catch (e) { /* armazenamento indisponível */ }
+  const ok = saved && typeof saved === 'object';
+  return {
+    ...sanitize(saved),
+    device: ok && typeof saved.device === 'string' ? saved.device : 'ap-' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36),
+    account: ok && typeof saved.account === 'string' ? saved.account : null, // id da conta dona destes dados
+    email: ok && typeof saved.email === 'string' ? saved.email : null,
+    localOnly: ok && saved.localOnly === true, // escolheu usar sem conta
+    dirty: ok && saved.dirty === true           // tem mudança que ainda não foi para a conta
+  };
+}
+// Grava no aparelho sem marcar como mudança da cliente.
+function persist() {
   try { localStorage.setItem(CONFIG.storageKey, JSON.stringify(state)); } catch (e) { /* ignora */ }
+}
+// Mudança feita pela cliente: grava no aparelho e manda para a conta.
+function saveState() {
+  state.updatedAt = Date.now();
+  state.dirty = true;
+  persist();
+  schedulePush();
 }
 
 let state = loadState();
-// A tela atual não é salva: ao recarregar, volta para a Jornada (ou Boas-vindas).
+// A tela atual não é salva: ao recarregar, volta para a Jornada (ou Cadastro).
 const onboarded = () => !!(state.name && state.phone && state.consent && state.start);
-let view = { screen: onboarded() ? 'journey' : 'welcome', day: null };
+const home = () => ({ screen: onboarded() ? 'journey' : 'welcome', day: null });
+let view = { screen: 'loading', day: null };
 // Rascunho do cadastro: mantém o que foi digitado ao abrir a tela de fotos e medidas.
 let draft = { name: state.name || '', phone: '', consent: false, noPhotos: false, weight: '', measures: {} };
 // Rascunho das medidas finais (tela de resultado).
@@ -558,7 +606,7 @@ const toSheetMeasures = m => m && { peso: m.weight, medidas: m.measures };
 function track(tipo, extra = {}) {
   const ev = {
     tipo, quando: new Date().toISOString(), aparelho: state.device,
-    nome: state.name, whatsapp: state.phone, progresso: progressSummary(), ...extra
+    nome: state.name, whatsapp: state.phone, email: state.email || undefined, progresso: progressSummary(), ...extra
   };
   // Comentário e motivo: só a versão mais recente de cada dia precisa ir.
   if (tipo === 'comentario' || tipo === 'nao_consegui') {
@@ -594,14 +642,218 @@ async function flushOutbox() {
 window.addEventListener('online', flushOutbox);
 
 // Comentários e motivos são enviados quando ela para de digitar.
-const textTimers = {};
+const textTimers = {}, pendingText = {};
 function trackText(field, day, text) {
-  const tipo = field === 'notes' ? 'comentario' : 'nao_consegui';
-  clearTimeout(textTimers[tipo + day]);
-  textTimers[tipo + day] = setTimeout(() => {
-    if (text.trim()) track(tipo, { dia: day, texto: text.trim() });
-  }, 2500);
+  const tipo = field === 'notes' ? 'comentario' : 'nao_consegui', key = tipo + day;
+  clearTimeout(textTimers[key]);
+  pendingText[key] = { tipo, day, text };
+  textTimers[key] = setTimeout(() => sendText(key), 2500);
 }
+function sendText(key) {
+  const p = pendingText[key];
+  delete pendingText[key];
+  if (p && p.text.trim()) track(p.tipo, { dia: p.day, texto: p.text.trim() });
+}
+// Ao fechar ou trocar de app: envia na hora o que ainda estava esperando.
+function flushPending() {
+  Object.keys(pendingText).forEach(key => { clearTimeout(textTimers[key]); sendText(key); });
+  if (state.dirty) pushNow(true);
+}
+window.addEventListener('pagehide', flushPending);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flushPending(); });
+
+/* =====================================================================
+   CONTA (e-mail + código) E PROGRESSO NA NUVEM
+   A cliente entra com o e-mail e um código enviado para ele. O progresso
+   fica no aparelho (funciona sem internet) e vai para a conta quando há
+   conexão. As fotos nunca saem do aparelho.
+   ===================================================================== */
+const SESSION_KEY = CONFIG.storageKey + '-sessao';
+let session = null; // { access_token, refresh_token, expires_at, user: { id, email } }
+try { session = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null'); } catch (e) { session = null; }
+if (!session || !session.user || !session.refresh_token) session = null;
+const saveSession = () => {
+  try { session ? localStorage.setItem(SESSION_KEY, JSON.stringify(session)) : localStorage.removeItem(SESSION_KEY); } catch (e) { /* ignora */ }
+};
+// A conta já está ligada aos dados deste aparelho?
+const linked = () => !!(session && state.account === session.user.id);
+let syncStatus = 'idle'; // idle | saving | ok | offline
+
+async function sb(path, { method = 'GET', body, auth = false, headers = {}, keepalive = false } = {}) {
+  const h = { apikey: CONFIG.supabaseKey, 'Content-Type': 'application/json', ...headers };
+  h.Authorization = 'Bearer ' + (auth ? await accessToken() : CONFIG.supabaseKey);
+  const res = await fetch(CONFIG.supabaseUrl + path, { method, headers: h, keepalive, body: body === undefined ? undefined : JSON.stringify(body) });
+  let data = null;
+  try { data = await res.json(); } catch (e) { /* resposta sem corpo */ }
+  if (!res.ok) {
+    const err = new Error((data && (data.msg || data.message || data.error_description || data.error)) || 'HTTP ' + res.status);
+    err.status = res.status;
+    err.code = data && (data.error_code || data.code);
+    throw err;
+  }
+  return data;
+}
+
+function setSession(data) {
+  session = {
+    access_token: data.access_token,
+    refresh_token: data.refresh_token,
+    expires_at: data.expires_at || Math.floor(Date.now() / 1000) + (data.expires_in || 3600),
+    user: { id: data.user.id, email: data.user.email }
+  };
+  saveSession();
+}
+
+let refreshing = null;
+async function accessToken() {
+  if (!session) throw Object.assign(new Error('sem sessão'), { status: 401 });
+  if (session.expires_at - 60 > Date.now() / 1000) return session.access_token;
+  if (!refreshing) {
+    refreshing = sb('/auth/v1/token?grant_type=refresh_token', { method: 'POST', body: { refresh_token: session.refresh_token } })
+      .then(setSession)
+      .finally(() => { refreshing = null; });
+  }
+  try {
+    await refreshing;
+  } catch (e) {
+    // Sessão vencida de vez: os dados continuam no aparelho e ela entra de novo.
+    if (e.status === 400 || e.status === 401 || e.status === 403) endSession();
+    throw e;
+  }
+  return session.access_token;
+}
+
+function endSession() {
+  session = null;
+  saveSession();
+  setSync('idle');
+}
+
+const SITE_URL = location.origin + location.pathname;
+async function sendCode(email) {
+  await sb('/auth/v1/otp?redirect_to=' + encodeURIComponent(SITE_URL), { method: 'POST', body: { email, create_user: true } });
+}
+async function verifyCode(email, token) {
+  setSession(await sb('/auth/v1/verify', { method: 'POST', body: { type: 'email', email, token } }));
+}
+// Entrou pelo link do e-mail: os dados de acesso vêm no fim do endereço.
+async function readLinkFromUrl() {
+  if (!location.hash || location.hash.length < 2) return;
+  const h = new URLSearchParams(location.hash.slice(1));
+  const at = h.get('access_token'), rt = h.get('refresh_token'), failed = h.get('error_description') || h.get('error');
+  if (!at && !failed) return;
+  history.replaceState(null, '', location.pathname + location.search);
+  if (failed) { login.error = 'O link do e-mail venceu ou já foi usado. Peça um código novo.'; return; }
+  try {
+    const res = await fetch(CONFIG.supabaseUrl + '/auth/v1/user', { headers: { apikey: CONFIG.supabaseKey, Authorization: 'Bearer ' + at } });
+    if (!res.ok) throw new Error('link inválido');
+    setSession({ access_token: at, refresh_token: rt, expires_at: Number(h.get('expires_at')) || 0, expires_in: Number(h.get('expires_in')) || 3600, user: await res.json() });
+  } catch (e) {
+    login.error = 'Não deu para entrar pelo link. Peça um código e digite aqui.';
+  }
+}
+
+const snapshot = () => Object.fromEntries(SYNC_FIELDS.map(k => [k, state[k]]));
+const hasJourney = d => !!(d && (d.start || d.done.some(Boolean)));
+
+function setSync(status) {
+  syncStatus = status;
+  const el = document.getElementById('sync-line');
+  if (el) el.textContent = syncText();
+}
+function syncText() {
+  if (!session) return '';
+  if (!linked() || syncStatus === 'offline') return 'Sem conexão com a conta agora. Está tudo salvo neste celular e vai para a conta quando a internet voltar.';
+  if (syncStatus === 'saving' || state.dirty) return 'Salvando na sua conta…';
+  return 'Tudo salvo na sua conta.';
+}
+
+let pushTimer = null;
+function schedulePush() {
+  if (!linked()) return;
+  clearTimeout(pushTimer);
+  pushTimer = setTimeout(() => pushNow(), 1200);
+}
+async function pushNow(keepalive = false) {
+  if (!linked() || !state.dirty) return;
+  clearTimeout(pushTimer);
+  const version = state.updatedAt;
+  setSync('saving');
+  try {
+    await sb('/rest/v1/app_progresso?on_conflict=user_id', {
+      method: 'POST', auth: true, keepalive,
+      headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
+      body: { user_id: session.user.id, email: session.user.email, dados: snapshot() }
+    });
+    // Se ela mexeu de novo enquanto salvava, manda a versão nova.
+    if (state.updatedAt === version) { state.dirty = false; persist(); setSync('ok'); }
+    else schedulePush();
+  } catch (e) {
+    setSync('offline');
+  }
+}
+
+// Junta o que está no aparelho com o que está na conta.
+// Dados da mesma conta: vale o mais recente. Dados de antes do login (app antigo
+// ou uso sem conta): vale o que tem mais dias concluídos; empate, fica a conta.
+async function pullAndMerge() {
+  const uid = session.user.id;
+  const rows = await sb('/rest/v1/app_progresso?select=dados&user_id=eq.' + encodeURIComponent(uid), { auth: true });
+  const remote = rows && rows[0] ? sanitize(rows[0].dados) : null;
+  const local = sanitize(snapshot());
+  const mine = state.account === uid;
+  let useRemote;
+  if (state.account && !mine) useRemote = true; // dados de outra conta neste aparelho: não misturar
+  else if (!hasJourney(remote)) useRemote = false;
+  else if (!hasJourney(local)) useRemote = true;
+  else if (mine) useRemote = remote.updatedAt > local.updatedAt;
+  else useRemote = remote.done.filter(Boolean).length >= local.done.filter(Boolean).length;
+
+  // Fotos de quem usava sem conta passam a ser desta conta.
+  if (!state.account) await adoptPhotos(uid);
+  if (useRemote) Object.assign(state, remote || sanitize(null), { dirty: false });
+  else if (hasJourney(local) && (!mine || !remote || local.updatedAt > remote.updatedAt)) state.dirty = true;
+  state.account = uid;
+  state.email = session.user.email;
+  state.localOnly = false;
+  persist();
+  await loadPhotos();
+  if (state.dirty) await pushNow(); else setSync('ok');
+  return useRemote;
+}
+
+// Tenta ligar a conta aos dados do aparelho; sem internet, tenta de novo depois.
+let merging = null;
+function ensureLinked() {
+  if (!session || linked()) return Promise.resolve(false);
+  if (!merging) merging = pullAndMerge().catch(() => { setSync('offline'); return false; }).finally(() => { merging = null; });
+  return merging;
+}
+
+// Ao abrir o app: busca o que mudou em outro aparelho.
+async function refreshFromCloud() {
+  if (!linked()) return;
+  if (state.dirty) return pushNow();
+  try {
+    const rows = await sb('/rest/v1/app_progresso?select=dados&user_id=eq.' + encodeURIComponent(session.user.id), { auth: true });
+    const remote = rows && rows[0] ? sanitize(rows[0].dados) : null;
+    if (remote && remote.updatedAt > state.updatedAt && !state.dirty) {
+      Object.assign(state, remote);
+      persist();
+      if (!['welcome', 'login'].includes(view.screen) && !document.activeElement.matches('textarea, input')) {
+        if (view.screen === 'day' && !isUnlocked(view.day)) view = home();
+        const y = window.scrollY;
+        render();
+        window.scrollTo(0, y);
+      }
+    }
+    setSync('ok');
+  } catch (e) {
+    setSync('offline');
+  }
+}
+
+window.addEventListener('online', () => { ensureLinked().then(() => pushNow()); });
 
 /* =====================================================================
    FOTOS (guardadas só no aparelho, no IndexedDB)
@@ -630,15 +882,40 @@ function photoTx(mode, fn) {
     } catch (e) { resolve(null); }
   });
 }
+// As fotos ficam separadas por conta ("local" = sem conta), no formato "conta/antes-frente".
+const PHOTO_KEYS = ['antes', 'depois'].flatMap(phase => CONFIG.poses.map(p => phase + '-' + p.id));
+const photoNs = () => state.account || 'local';
+const pk = key => photoNs() + '/' + key;
+
 async function loadPhotos() {
-  photoDb = await openPhotoDb();
-  for (const phase of ['antes', 'depois']) {
-    for (const pose of CONFIG.poses) {
-      const key = phase + '-' + pose.id;
-      const blob = await photoTx('readonly', s => s.get(key));
-      if (blob) photoUrls[key] = URL.createObjectURL(blob);
+  if (!photoDb) {
+    photoDb = await openPhotoDb();
+    // Fotos do app antigo (sem conta): passam para o espaço "local".
+    for (const key of PHOTO_KEYS) {
+      const old = await photoTx('readonly', s => s.get(key));
+      if (!old) continue;
+      if (!(await photoTx('readonly', s => s.get('local/' + key)))) await photoTx('readwrite', s => s.put(old, 'local/' + key));
+      await photoTx('readwrite', s => s.delete(key));
     }
   }
+  Object.keys(photoUrls).forEach(k => { URL.revokeObjectURL(photoUrls[k]); delete photoUrls[k]; });
+  for (const key of PHOTO_KEYS) {
+    const blob = await photoTx('readonly', s => s.get(pk(key)));
+    if (blob) photoUrls[key] = URL.createObjectURL(blob);
+  }
+}
+// Ao entrar na conta pela primeira vez neste celular, as fotos de antes passam para ela.
+async function adoptPhotos(uid) {
+  for (const key of PHOTO_KEYS) {
+    const blob = await photoTx('readonly', s => s.get('local/' + key));
+    if (!blob) continue;
+    if (!(await photoTx('readonly', s => s.get(uid + '/' + key)))) await photoTx('readwrite', s => s.put(blob, uid + '/' + key));
+    await photoTx('readwrite', s => s.delete('local/' + key));
+  }
+}
+async function clearPhotos() {
+  for (const key of PHOTO_KEYS) await photoTx('readwrite', s => s.delete(pk(key)));
+  Object.keys(photoUrls).forEach(k => { URL.revokeObjectURL(photoUrls[k]); delete photoUrls[k]; });
 }
 // Reduz a foto para no máximo 1200 px, em JPEG, para ocupar pouco espaço.
 function shrinkImage(file) {
@@ -660,7 +937,7 @@ function shrinkImage(file) {
 }
 async function savePhoto(key, file) {
   const blob = await shrinkImage(file);
-  await photoTx('readwrite', s => s.put(blob, key));
+  await photoTx('readwrite', s => s.put(blob, pk(key)));
   if (photoUrls[key]) URL.revokeObjectURL(photoUrls[key]);
   photoUrls[key] = URL.createObjectURL(blob);
 }
@@ -691,6 +968,149 @@ function numberField(id, label, unit, value) {
         <span class="unit" aria-hidden="true">${unit}</span>
       </div>
     </div>`;
+}
+
+// Entrar com e-mail: passo 'email' (pede o código) e passo 'code' (digita o código).
+let login = { step: 'email', email: '', code: '', error: '', busy: false, failed: false, wait: 0 };
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+let waitTimer = null;
+
+function renderLoading() {
+  return `<div class="loading" role="status">Carregando…</div>`;
+}
+
+function renderLogin() {
+  const progressHere = !state.account && hasJourney(state);
+  const error = login.error ? `<p class="form-error" role="alert">${esc(login.error)}</p>` : '';
+  // Se o envio falhar (por exemplo, sem internet), ela pode seguir só neste celular.
+  const offlineWay = login.failed ? `
+    <button class="btn ghost" type="button" id="use-local">Continuar sem conta (fica só neste celular)</button>` : '';
+
+  if (login.step === 'code') {
+    return `
+      <button class="btn-back" type="button" id="change-email">${ICON.back} Trocar e-mail</button>
+      <div><span class="tag">ENTRAR</span></div>
+      <h1 class="h-screen">Digite o código</h1>
+      <p class="muted stack-top">Mandamos um código para <strong>${esc(login.email)}</strong>. Ele vale por 1 hora.</p>
+      <form id="code-form" novalidate>
+        <label class="field-label" for="code">Código do e-mail</label>
+        <input class="input code-input" id="code" name="code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="10" placeholder="000000" value="${esc(login.code)}">
+        ${error}
+        <button class="btn" type="submit" ${login.busy ? 'aria-disabled="true"' : ''}>${login.busy ? 'Entrando…' : 'Entrar'}</button>
+      </form>
+      <p class="muted small">Também dá para tocar no botão do e-mail. Não chegou? Olhe as pastas de spam e promoções.</p>
+      <button class="link-btn" type="button" id="resend" ${login.wait > 0 || login.busy ? 'disabled' : ''}>${login.wait > 0 ? `Reenviar o código em ${login.wait}s` : 'Reenviar o código'}</button>
+      ${offlineWay}
+      ${footer()}`;
+  }
+
+  return `
+    ${onboarded() ? `<button class="btn-back" type="button" data-go="journey">${ICON.back} Jornada</button>` : brand()}
+    <span class="tag">DESAFIO VOLTA AO EIXO 7D</span>
+    <h1 class="h-big">Bem-vinda. Vamos voltar ao eixo, um dia de cada vez.</h1>
+    <p class="muted stack-top">Entre com o seu e-mail para começar. Você recebe um código, sem senha. Assim o seu progresso fica salvo, mesmo se trocar de celular.</p>
+    ${progressHere ? `
+    <section class="card soft" style="margin-top:18px">
+      <p style="font-weight:600">Seu progresso continua aqui.</p>
+      <p class="small">Encontramos ${doneCount()} de ${TOTAL} dias concluídos neste celular. Ao entrar, eles ficam salvos na sua conta.</p>
+    </section>` : ''}
+    <form id="email-form" novalidate>
+      <label class="field-label" for="email">Seu e-mail</label>
+      <input class="input" id="email" name="email" type="email" inputmode="email" autocomplete="email" placeholder="voce@email.com" value="${esc(login.email)}" aria-describedby="email-help">
+      <p class="muted small" id="email-help" style="margin-top:-8px">De preferência, o mesmo e-mail da compra.</p>
+      ${error}
+      <button class="btn" type="submit" ${login.busy ? 'aria-disabled="true"' : ''}>${login.busy ? 'Enviando…' : 'Receber o código'}</button>
+    </form>
+    ${offlineWay}
+    ${footer()}`;
+}
+
+function startWait(seconds) {
+  login.wait = seconds;
+  clearInterval(waitTimer);
+  waitTimer = setInterval(() => {
+    login.wait = Math.max(0, login.wait - 1);
+    const b = document.getElementById('resend');
+    if (b) {
+      b.disabled = login.wait > 0;
+      b.textContent = login.wait > 0 ? `Reenviar o código em ${login.wait}s` : 'Reenviar o código';
+    }
+    if (!login.wait) clearInterval(waitTimer);
+  }, 1000);
+}
+
+function loginErrorText(e, sending) {
+  if (e instanceof TypeError) return 'Sem internet agora. Confira a conexão e tente de novo.';
+  if (e.status === 429 || /rate/i.test(e.code || '')) return 'Muitas tentativas seguidas. Espere alguns minutos e tente de novo.';
+  if (!sending && (e.status === 400 || e.status === 401 || e.status === 403)) return 'Código errado ou vencido. Confira os números ou peça um código novo.';
+  return sending ? 'Não conseguimos enviar o código agora. Tente de novo em alguns minutos.' : 'Não conseguimos entrar agora. Tente de novo.';
+}
+
+async function requestCode() {
+  if (login.busy) return;
+  const email = login.email.trim().toLowerCase();
+  if (!EMAIL_RE.test(email)) {
+    login.error = 'Confira o e-mail: ele precisa ter @ e um final como .com ou .com.br.';
+    return render();
+  }
+  login.email = email;
+  login.busy = true; login.error = ''; render();
+  try {
+    await sendCode(email);
+    login.step = 'code'; login.code = ''; login.failed = false;
+    startWait(60);
+  } catch (e) {
+    login.error = loginErrorText(e, true);
+    login.failed = true;
+  }
+  login.busy = false;
+  render();
+  const next = document.getElementById(login.step === 'code' ? 'code' : 'email');
+  if (next) next.focus();
+}
+
+async function confirmCode() {
+  if (login.busy) return;
+  const code = login.code.replace(/\D/g, '');
+  if (code.length < 6) {
+    login.error = 'Digite os números do código que chegou no e-mail.';
+    return render();
+  }
+  login.busy = true; login.error = ''; render();
+  try {
+    await verifyCode(login.email, code);
+  } catch (e) {
+    login.busy = false;
+    login.error = loginErrorText(e, false);
+    return render();
+  }
+  await afterLogin();
+}
+
+async function afterLogin() {
+  view = { screen: 'loading', day: null };
+  render();
+  await ensureLinked();
+  login = { step: 'email', email: '', code: '', error: '', busy: false, failed: false, wait: 0 };
+  go(home().screen);
+}
+
+// Cartão "Sua conta" (aba Progresso).
+function accountCard() {
+  if (session) return `
+    <section class="card">
+      <h2 class="h-card">Sua conta</h2>
+      <p class="small">Você entrou com <strong>${esc(session.user.email)}</strong>.</p>
+      <p class="muted small" id="sync-line" aria-live="polite">${esc(syncText())}</p>
+      <p class="muted small">As fotos ficam só neste celular.</p>
+      <button class="btn ghost" type="button" id="logout">Sair da conta</button>
+    </section>`;
+  return `
+    <section class="card soft">
+      <h2 class="h-card">Salve o seu progresso</h2>
+      <p class="small">Hoje o seu progresso está só neste celular. Entre com o seu e-mail para não perder nada se trocar de aparelho.</p>
+      <button class="btn" type="button" data-go="login">Entrar com e-mail</button>
+    </section>`;
 }
 
 function renderWelcome() {
@@ -818,6 +1238,11 @@ function renderJourney() {
         <p class="muted small">${n} de ${TOTAL} dias concluídos</p>
       </div>
     </section>
+    ${session ? '' : `
+    <section class="card soft">
+      <p class="small"><strong>Seu progresso está só neste celular.</strong> Entre com o seu e-mail para salvar na sua conta.</p>
+      <button class="btn secondary" type="button" data-go="login">Entrar com e-mail</button>
+    </section>`}
     ${complete
       ? (state.final
         ? `<button class="btn secondary" type="button" data-go="result">Ver minha evolução</button>${communityCard()}`
@@ -886,10 +1311,12 @@ function renderDay(num) {
     <section class="card">
       <h2 class="h-card">Áudio da Profe Laura</h2>
       <p class="muted small">${audio}</p>
-      <div class="audio">
+      ${d.audioUrl
+        ? `<audio class="audio-player" controls preload="none" src="${esc(d.audioUrl)}">Seu navegador não toca este áudio.</audio>`
+        : `<div class="audio">
         <button class="audio-play" type="button" disabled aria-label="Áudio da Profe Laura (em breve)">${ICON.play}</button>
         <span class="placeholder">[ÁUDIO · EM BREVE · 3 a 5 min]</span>
-      </div>
+      </div>`}
     </section>
     <section class="card">
       <h2 class="h-card">Seus passos de hoje</h2>
@@ -909,6 +1336,8 @@ function renderDay(num) {
 const fmt = (n, dec = 1) => Number(n).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: dec });
 const fmtDiff = d => (d > 0 ? '+' : d < 0 ? '−' : '') + fmt(Math.abs(d));
 const fmtDate = iso => iso ? iso.split('-').reverse().join('/') : '';
+// Data de hoje no horário do celular (AAAA-MM-DD).
+const today = () => { const d = new Date(), p = n => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`; };
 
 // Tabela Início → Dia 7 → Diferença (usada no Resultado e no Progresso).
 function evoTable() {
@@ -989,6 +1418,7 @@ function renderProgress() {
     ${startCard}
     <h2 class="h-card section-title">Seus dias</h2>
     ${days}
+    <div style="margin-top:18px">${accountCard()}</div>
     ${footer()}`;
 }
 
@@ -1186,10 +1616,12 @@ function go(screen, day = null) {
 function render() {
   const app = document.getElementById('app');
   const nav = document.getElementById('nav');
-  const screens = { welcome: renderWelcome, guide: renderGuide, journey: renderJourney, day: () => renderDay(view.day), plate: renderPlate, kit: renderKit, bonus: renderBonus, result: renderResult, progress: renderProgress };
+  const screens = { loading: renderLoading, login: renderLogin, welcome: renderWelcome, guide: renderGuide, journey: renderJourney, day: () => renderDay(view.day), plate: renderPlate, kit: renderKit, bonus: renderBonus, result: renderResult, progress: renderProgress };
+  // Sem cadastro, as telas da jornada levam para o cadastro.
+  if (!onboarded() && !['loading', 'login', 'welcome', 'guide'].includes(view.screen)) view = { screen: 'welcome', day: null };
   app.innerHTML = screens[view.screen]();
 
-  const showNav = onboarded();
+  const showNav = onboarded() && !['loading', 'login'].includes(view.screen);
   app.classList.toggle('has-nav', showNav);
   nav.hidden = !showNav;
   if (showNav) {
@@ -1208,7 +1640,7 @@ function render() {
    ===================================================================== */
 let modalAction = null, modalReturnFocus = null;
 
-function openModal({ title, body, confirm, onConfirm }) {
+function openModal({ title, body, confirm, onConfirm, cancel = true }) {
   modalAction = onConfirm;
   modalReturnFocus = document.activeElement;
   document.getElementById('modal-root').innerHTML = `
@@ -1218,11 +1650,11 @@ function openModal({ title, body, confirm, onConfirm }) {
         <div id="modal-body">${body}</div>
         <div style="margin-top:16px">
           <button class="btn" type="button" id="modal-confirm">${esc(confirm)}</button>
-          <button class="btn secondary" type="button" id="modal-cancel">Cancelar</button>
+          ${cancel ? '<button class="btn secondary" type="button" id="modal-cancel">Cancelar</button>' : ''}
         </div>
       </div>
     </div>`;
-  document.getElementById('modal-cancel').focus();
+  document.getElementById(cancel ? 'modal-cancel' : 'modal-confirm').focus();
 }
 
 function closeModal() {
@@ -1258,18 +1690,35 @@ function startEditProfile() {
   go('welcome');
 }
 
-// Apaga tudo deste aparelho e volta para o cadastro vazio.
+// Apaga a jornada (neste aparelho e na conta) e volta para o cadastro vazio.
 async function resetEverything() {
   // A planilha registra que ela recomeçou e zera os dias dela (o histórico fica lá).
   track('reinicio', { progresso: { concluidos: 0, recuperados: 0, ultimoDia: '' } });
-  await photoTx('readwrite', s => s.clear());
-  Object.keys(photoUrls).forEach(k => { URL.revokeObjectURL(photoUrls[k]); delete photoUrls[k]; });
+  await clearPhotos();
   Object.assign(state, { name: null, phone: null, consent: false, noPhotos: false, start: null, final: null }, emptyProgress());
   saveState();
   draft = { name: '', phone: '', consent: false, noPhotos: false, weight: '', measures: {} };
   finalDraft = { weight: '', measures: {}, editing: false };
   editingProfile = false;
   go('welcome');
+}
+
+// Sai da conta: a jornada fica salva na conta; neste aparelho, só as fotos ficam guardadas.
+async function logout() {
+  await pushNow();
+  const token = session && session.access_token;
+  if (token) {
+    fetch(CONFIG.supabaseUrl + '/auth/v1/logout', { method: 'POST', headers: { apikey: CONFIG.supabaseKey, Authorization: 'Bearer ' + token } }).catch(() => {});
+  }
+  endSession();
+  const device = state.device;
+  state = { ...sanitize(null), device, account: null, email: null, localOnly: false, dirty: false };
+  persist();
+  draft = { name: '', phone: '', consent: false, noPhotos: false, weight: '', measures: {} };
+  finalDraft = { weight: '', measures: {}, editing: false };
+  await loadPhotos();
+  login = { step: 'email', email: '', code: '', error: '', busy: false, failed: false, wait: 0 };
+  go('login');
 }
 
 /* =====================================================================
@@ -1380,7 +1829,7 @@ document.addEventListener('submit', e => {
   const errors = [];
   const { weight, measures } = readMeasures(finalDraft, errors, '-f');
   if (errors.length) return showErrors(errors, 'final-error', 'Para ver a sua evolução, preencha ');
-  state.final = { weight, measures, date: new Date().toISOString().slice(0, 10) };
+  state.final = { weight, measures, date: today() };
   finalDraft.editing = false;
   saveState();
   track('resultado', { final: toSheetMeasures(state.final) });
@@ -1410,7 +1859,7 @@ document.addEventListener('submit', e => {
   state.consent = true;
   state.noPhotos = draft.noPhotos;
   // Na correção, a data de início continua a original.
-  state.start = { weight, measures, date: (editingProfile && state.start && state.start.date) || new Date().toISOString().slice(0, 10) };
+  state.start = { weight, measures, date: (editingProfile && state.start && state.start.date) || today() };
   saveState();
   track('cadastro', {
     inicio: toSheetMeasures(state.start),
@@ -1430,6 +1879,18 @@ document.addEventListener('click', e => {
   switch (el.id) {
     case 'toggle-day': {
       const i = view.day - 1;
+      const laterDone = state.done.slice(i + 1).lastIndexOf(true);
+      if (state.done[i] && laterDone !== -1) {
+        // Desmarcar um dia no meio deixaria os dias seguintes concluídos e trancados.
+        openModal({
+          title: 'Este dia não pode ser desmarcado agora',
+          body: `<p>O Dia ${i + 2 + laterDone} já está concluído. Para desmarcar o Dia ${view.day}, desmarque antes os dias seguintes, do último para o primeiro.</p>`,
+          confirm: 'Entendi',
+          onConfirm: null,
+          cancel: false
+        });
+        return;
+      }
       if (state.done[i]) {
         state.done[i] = false;
         state.recovered[i] = false;
@@ -1520,7 +1981,41 @@ document.addEventListener('click', e => {
       timer.remaining = CONFIG.timerSeconds;
       updateTimerUI();
       break;
+    case 'change-email':
+      login = { ...login, step: 'email', code: '', error: '', failed: false };
+      render();
+      break;
+    case 'resend':
+      requestCode();
+      break;
+    case 'use-local':
+      state.localOnly = true;
+      persist();
+      login = { step: 'email', email: '', code: '', error: '', busy: false, failed: false, wait: 0 };
+      go(home().screen);
+      break;
+    case 'logout':
+      openModal({
+        title: 'Sair da conta?',
+        body: state.dirty
+          ? `<p>Há mudanças que ainda não chegaram na sua conta, porque o celular está sem internet. Se sair agora, elas se perdem.</p><p class="small muted">Se puder, conecte à internet e espere aparecer "Tudo salvo na sua conta".</p>`
+          : `<p>Seu progresso continua salvo na conta. Para ver de novo, é só entrar com o mesmo e-mail.</p><p class="small muted">As fotos ficam guardadas neste celular e voltam quando você entrar de novo.</p>`,
+        confirm: 'Sair da conta',
+        onConfirm: logout
+      });
+      break;
   }
+});
+
+// Entrar com e-mail
+document.addEventListener('input', e => {
+  if (view.screen !== 'login') return;
+  if (e.target.id === 'email') login.email = e.target.value;
+  else if (e.target.id === 'code') login.code = e.target.value;
+});
+document.addEventListener('submit', e => {
+  if (e.target.id === 'email-form') { e.preventDefault(); requestCode(); }
+  if (e.target.id === 'code-form') { e.preventDefault(); confirmCode(); }
 });
 
 document.addEventListener('change', e => {
@@ -1536,9 +2031,31 @@ document.addEventListener('change', e => {
   }
 });
 
-render();
-loadPhotos().then(() => { if (Object.keys(photoUrls).length) render(); });
-flushOutbox();
+/* =====================================================================
+   ABERTURA DO APP
+   - Já entrou antes: abre direto na jornada (funciona sem internet) e
+     confere a conta em segundo plano.
+   - Escolheu usar sem conta: abre a jornada como antes.
+   - Primeira vez: pede o e-mail.
+   ===================================================================== */
+async function boot() {
+  render();
+  await readLinkFromUrl();
+  await loadPhotos();
+  if (session && !linked()) {
+    // Acabou de entrar (pelo link do e-mail) ou a junção ficou pendente sem internet.
+    await ensureLinked();
+    view = home();
+  } else if (session || state.localOnly) {
+    view = home();
+    refreshFromCloud();
+  } else {
+    view = { screen: 'login', day: null };
+  }
+  render();
+  flushOutbox();
+}
+boot();
 </script>
 </body>
 </html>
